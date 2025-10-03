@@ -3,13 +3,14 @@
 ## 📋 **API Overview**
 
 This is a comprehensive social media API built with Laravel 12, featuring:
-- 🔐 **Authentication & Authorization** (Sanctum)
-- 📱 **Firebase Push Notifications** 
-- 📁 **S3 File Uploads** with presigned URLs
-- 🎥 **Large File Support** (500MB+ videos)
-- 🔍 **Advanced Search & Filtering**
-- 📊 **Performance Optimized** for 100k+ users
-- 🐳 **Docker Ready** with multi-service setup
+
+-   🔐 **Authentication & Authorization** (Sanctum)
+-   📱 **Firebase Push Notifications**
+-   📁 **S3 File Uploads** with presigned URLs
+-   🎥 **Large File Support** (500MB+ videos)
+-   🔍 **Advanced Search & Filtering**
+-   📊 **Performance Optimized** for 100k+ users
+-   🐳 **Docker Ready** with multi-service setup
 
 ## 🌐 **Base URL**
 
@@ -27,9 +28,10 @@ Local: http://localhost/api
 5. [🔔 Notifications](#-notifications)
 6. [📱 Device Management](#-device-management)
 7. [🏢 Business Features](#-business-features)
-8. [🔍 Search & Discovery](#-search--discovery)
-9. [📊 Performance Features](#-performance-features)
-10. [🛠️ System Endpoints](#️-system-endpoints)
+8. [🏷️ Categories](#-category-endpoints)
+9. [🔍 Search & Discovery](#-search--discovery)
+10. [📊 Performance Features](#-performance-features)
+11. [🛠️ System Endpoints](#️-system-endpoints)
 
 ---
 
@@ -41,7 +43,7 @@ All protected endpoints require Bearer token authentication:
 
 Authorization: Bearer {your_token}
 
-````
+```
 
 ---
 
@@ -69,7 +71,7 @@ Register a new user account.
     "app_version": "1.0.0", // Optional
     "os_version": "Android 12" // Optional
 }
-````
+```
 
 **Response:**
 
@@ -256,6 +258,52 @@ Get Firebase custom token for frontend authentication.
             "username": "johndoe",
             "profile_picture": "https://example.com/photo.jpg",
             "created_at": "2024-01-15T10:30:00Z"
+        }
+    }
+}
+```
+
+### Verify Firebase Token
+
+**POST** `/verify-firebase-token`
+
+Verify Firebase ID token and authenticate user.
+
+**Request Body:**
+
+```json
+{
+    "id_token": "firebase_id_token_here",
+    "device_token": "firebase_device_token_here", // Optional
+    "device_type": "android", // Optional: android, ios, web
+    "device_name": "Samsung Galaxy S21", // Optional
+    "app_version": "1.0.0", // Optional
+    "os_version": "Android 12" // Optional
+}
+```
+
+**Response:**
+
+```json
+{
+    "success": true,
+    "message": "Firebase token verified successfully",
+    "data": {
+        "user": {
+            "id": 123,
+            "full_name": "John Doe",
+            "email": "john@example.com",
+            "username": "johndoe",
+            "profile_picture": "https://example.com/photo.jpg",
+            "created_at": "2024-01-15T10:30:00Z"
+        },
+        "token": "1|abc123def456...",
+        "device": {
+            "id": 456,
+            "device_token": "firebase_device_token_here",
+            "device_type": "android",
+            "device_name": "Samsung Galaxy S21",
+            "is_active": true
         }
     }
 }
@@ -1140,8 +1188,8 @@ Get all available interests.
 
 The API automatically detects file size and chooses the optimal upload method:
 
-- **< 500MB**: Direct S3 upload with presigned URL
-- **≥ 500MB**: Chunked upload for better performance
+-   **< 500MB**: Direct S3 upload with presigned URL
+-   **≥ 500MB**: Chunked upload for better performance
 
 ### **Get Upload URL**
 
@@ -1150,6 +1198,7 @@ The API automatically detects file size and chooses the optimal upload method:
 Get presigned URL for file upload.
 
 **Request:**
+
 ```json
 {
     "filename": "video.mp4",
@@ -1159,6 +1208,7 @@ Get presigned URL for file upload.
 ```
 
 **Response (Small File < 500MB):**
+
 ```json
 {
     "success": true,
@@ -1175,6 +1225,7 @@ Get presigned URL for file upload.
 ```
 
 **Response (Large File ≥ 500MB):**
+
 ```json
 {
     "success": true,
@@ -1198,6 +1249,7 @@ Get presigned URL for file upload.
 Get multiple presigned URLs for chunked upload.
 
 **Request:**
+
 ```json
 {
     "filename": "large_video.mp4",
@@ -1208,6 +1260,7 @@ Get multiple presigned URLs for chunked upload.
 ```
 
 **Response:**
+
 ```json
 {
     "success": true,
@@ -1235,6 +1288,7 @@ Get multiple presigned URLs for chunked upload.
 Complete the chunked upload process.
 
 **Request:**
+
 ```json
 {
     "file_path": "posts/1234567890_1_abc123.mp4",
@@ -1249,6 +1303,7 @@ Complete the chunked upload process.
 Create a post after successful S3 upload.
 
 **Request:**
+
 ```json
 {
     "file_path": "posts/1234567890_1_abc123.mp4",
@@ -1261,6 +1316,7 @@ Create a post after successful S3 upload.
 ```
 
 **Response:**
+
 ```json
 {
     "success": true,
@@ -1331,17 +1387,17 @@ The API supports Firebase push notifications for:
 
 ### **Caching Strategy**
 
-- **Redis Cache**: User sessions, API responses
-- **Database Indexing**: Optimized queries for 100k+ users
-- **CDN Integration**: S3 + CloudFront for media delivery
-- **Query Optimization**: Eager loading, selective fields
+-   **Redis Cache**: User sessions, API responses
+-   **Database Indexing**: Optimized queries for 100k+ users
+-   **CDN Integration**: S3 + CloudFront for media delivery
+-   **Query Optimization**: Eager loading, selective fields
 
 ### **Rate Limiting**
 
-- **General API**: 60 requests/minute
-- **Authentication**: 5 requests/minute
-- **File Uploads**: 10 requests/minute
-- **Search**: 30 requests/minute
+-   **General API**: 60 requests/minute
+-   **Authentication**: 5 requests/minute
+-   **File Uploads**: 10 requests/minute
+-   **Search**: 30 requests/minute
 
 ### **Performance Monitoring**
 
@@ -1350,6 +1406,7 @@ The API supports Firebase push notifications for:
 Get system performance metrics.
 
 **Response:**
+
 ```json
 {
     "success": true,
@@ -1375,6 +1432,7 @@ Get system performance metrics.
 Check API health status.
 
 **Response:**
+
 ```json
 {
     "status": "healthy",
@@ -1395,6 +1453,7 @@ Check API health status.
 Get detailed system status.
 
 **Response:**
+
 ```json
 {
     "success": true,
@@ -1417,6 +1476,7 @@ Get detailed system status.
 Check database performance and health.
 
 **Response:**
+
 ```json
 {
     "success": true,
@@ -1438,6 +1498,7 @@ Check database performance and health.
 ## 🚀 **Quick Start Guide**
 
 ### **1. Authentication**
+
 ```bash
 # Register
 curl -X POST /api/register \
@@ -1451,6 +1512,7 @@ curl -X POST /api/login \
 ```
 
 ### **2. File Upload**
+
 ```bash
 # Get upload URL
 curl -X POST /api/posts/upload-url \
@@ -1471,6 +1533,7 @@ curl -X POST /api/posts/create-from-s3 \
 ```
 
 ### **3. Firebase Authentication**
+
 ```bash
 # Google Sign-In
 curl -X POST /api/auth/google \
@@ -1482,6 +1545,11 @@ curl -X POST /api/auth/apple \
   -H "Content-Type: application/json" \
   -d '{"identity_token":"apple_identity_token","device_token":"firebase_token","device_type":"ios"}'
 
+# Verify Firebase Token
+curl -X POST /api/verify-firebase-token \
+  -H "Content-Type: application/json" \
+  -d '{"id_token":"firebase_id_token","device_token":"firebase_device_token","device_type":"android"}'
+
 # Get Firebase Custom Token
 curl -X POST /api/auth/firebase-token \
   -H "Authorization: Bearer YOUR_TOKEN" \
@@ -1490,6 +1558,7 @@ curl -X POST /api/auth/firebase-token \
 ```
 
 ### **4. Firebase Notifications**
+
 ```bash
 # Register device
 curl -X POST /api/devices/register \
@@ -1521,15 +1590,15 @@ curl -X GET /api/notifications \
 
 ### **HTTP Status Codes**
 
-- `200` - Success
-- `201` - Created
-- `400` - Bad Request
-- `401` - Unauthorized
-- `403` - Forbidden
-- `404` - Not Found
-- `422` - Validation Error
-- `429` - Too Many Requests
-- `500` - Internal Server Error
+-   `200` - Success
+-   `201` - Created
+-   `400` - Bad Request
+-   `401` - Unauthorized
+-   `403` - Forbidden
+-   `404` - Not Found
+-   `422` - Validation Error
+-   `429` - Too Many Requests
+-   `500` - Internal Server Error
 
 ---
 
@@ -1566,11 +1635,11 @@ REDIS_PORT=6379
 
 ## 📚 **Additional Resources**
 
-- [Docker Setup Guide](DEPLOYMENT_GUIDE.md)
-- [Firebase Notifications Guide](FIREBASE_NOTIFICATIONS_GUIDE.md)
-- [Large File Upload Guide](LARGE_FILE_UPLOAD_GUIDE.md)
-- [Performance Optimization](PERFORMANCE_OPTIMIZATION.md)
-- [Security Summary](SECURITY_SUMMARY.md)
+-   [Docker Setup Guide](DEPLOYMENT_GUIDE.md)
+-   [Firebase Notifications Guide](FIREBASE_NOTIFICATIONS_GUIDE.md)
+-   [Large File Upload Guide](LARGE_FILE_UPLOAD_GUIDE.md)
+-   [Performance Optimization](PERFORMANCE_OPTIMIZATION.md)
+-   [Security Summary](SECURITY_SUMMARY.md)
 
 ---
 
