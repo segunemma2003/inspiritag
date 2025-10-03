@@ -129,6 +129,138 @@ Authenticate user and return access token.
 }
 ```
 
+### Google Sign-In
+
+**POST** `/auth/google`
+
+Authenticate with Google OAuth token.
+
+**Request Body:**
+
+```json
+{
+    "id_token": "google_id_token_here",
+    "device_token": "firebase_token_here", // Optional
+    "device_type": "android", // Optional: android, ios, web
+    "device_name": "Samsung Galaxy S21", // Optional
+    "app_version": "1.0.0", // Optional
+    "os_version": "Android 12" // Optional
+}
+```
+
+**Response:**
+
+```json
+{
+    "success": true,
+    "message": "Google authentication successful",
+    "data": {
+        "user": {
+            "id": 123,
+            "full_name": "John Doe",
+            "email": "john@gmail.com",
+            "username": "johndoe",
+            "profile_picture": "https://lh3.googleusercontent.com/...",
+            "is_google_user": true,
+            "created_at": "2024-01-15T10:30:00Z"
+        },
+        "token": "1|abc123def456...",
+        "device": {
+            "id": 456,
+            "device_token": "firebase_token_here",
+            "device_type": "android",
+            "device_name": "Samsung Galaxy S21",
+            "is_active": true
+        }
+    }
+}
+```
+
+### Apple Sign-In
+
+**POST** `/auth/apple`
+
+Authenticate with Apple Sign-In.
+
+**Request Body:**
+
+```json
+{
+    "identity_token": "apple_identity_token_here",
+    "authorization_code": "apple_authorization_code_here", // Optional
+    "device_token": "firebase_token_here", // Optional
+    "device_type": "ios", // Optional: android, ios, web
+    "device_name": "iPhone 15 Pro", // Optional
+    "app_version": "1.0.0", // Optional
+    "os_version": "iOS 17" // Optional
+}
+```
+
+**Response:**
+
+```json
+{
+    "success": true,
+    "message": "Apple authentication successful",
+    "data": {
+        "user": {
+            "id": 123,
+            "full_name": "John Doe",
+            "email": "john@privaterelay.appleid.com",
+            "username": "johndoe",
+            "profile_picture": null,
+            "is_apple_user": true,
+            "created_at": "2024-01-15T10:30:00Z"
+        },
+        "token": "1|abc123def456...",
+        "device": {
+            "id": 456,
+            "device_token": "firebase_token_here",
+            "device_type": "ios",
+            "device_name": "iPhone 15 Pro",
+            "is_active": true
+        }
+    }
+}
+```
+
+### Firebase Custom Token
+
+**POST** `/auth/firebase-token`
+
+Get Firebase custom token for frontend authentication.
+
+**Request Body:**
+
+```json
+{
+    "uid": "firebase_user_uid",
+    "email": "user@example.com",
+    "display_name": "John Doe",
+    "photo_url": "https://example.com/photo.jpg" // Optional
+}
+```
+
+**Response:**
+
+```json
+{
+    "success": true,
+    "data": {
+        "custom_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...",
+        "expires_in": 3600,
+        "user": {
+            "id": 123,
+            "full_name": "John Doe",
+            "email": "user@example.com",
+            "username": "johndoe",
+            "profile_picture": "https://example.com/photo.jpg",
+            "created_at": "2024-01-15T10:30:00Z"
+        }
+    }
+}
+```
+
 ### Logout
 
 **POST** `/logout`
@@ -1338,7 +1470,26 @@ curl -X POST /api/posts/create-from-s3 \
   -d '{"file_path":"posts/1234567890_1_abc123.mp4","title":"My Video","description":"Awesome video!"}'
 ```
 
-### **3. Firebase Notifications**
+### **3. Firebase Authentication**
+```bash
+# Google Sign-In
+curl -X POST /api/auth/google \
+  -H "Content-Type: application/json" \
+  -d '{"id_token":"google_id_token","device_token":"firebase_token","device_type":"android"}'
+
+# Apple Sign-In
+curl -X POST /api/auth/apple \
+  -H "Content-Type: application/json" \
+  -d '{"identity_token":"apple_identity_token","device_token":"firebase_token","device_type":"ios"}'
+
+# Get Firebase Custom Token
+curl -X POST /api/auth/firebase-token \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"uid":"firebase_uid","email":"user@example.com","display_name":"John Doe"}'
+```
+
+### **4. Firebase Notifications**
 ```bash
 # Register device
 curl -X POST /api/devices/register \
