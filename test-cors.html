@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inspirtag API CORS Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        button { padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>🌐 Inspirtag API CORS Test</h1>
+    <p>Testing CORS configuration for your API at <strong>http://[SERVER_IP]</strong></p>
+
+    <div class="test-section">
+        <h3>Test 1: Health Check (GET)</h3>
+        <button onclick="testHealth()">Test Health Endpoint</button>
+        <div id="health-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>Test 2: Categories API (GET)</h3>
+        <button onclick="testCategories()">Test Categories Endpoint</button>
+        <div id="categories-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>Test 3: Interests API (GET)</h3>
+        <button onclick="testInterests()">Test Interests Endpoint</button>
+        <div id="interests-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>Test 4: User Registration (POST)</h3>
+        <button onclick="testRegistration()">Test User Registration</button>
+        <div id="registration-result"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://[SERVER_IP]';
+
+        function displayResult(elementId, success, data, error = null) {
+            const element = document.getElementById(elementId);
+            const className = success ? 'success' : 'error';
+            const status = success ? '✅ SUCCESS' : '❌ ERROR';
+
+            let content = `<h4>${status}</h4>`;
+            if (error) {
+                content += `<p><strong>Error:</strong> ${error}</p>`;
+            }
+            content += `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+
+            element.innerHTML = `<div class="${className}">${content}</div>`;
+        }
+
+        async function testHealth() {
+            try {
+                const response = await fetch(`${API_BASE}/health`);
+                const text = await response.text();
+                displayResult('health-result', response.ok, { status: response.status, data: text });
+            } catch (error) {
+                displayResult('health-result', false, null, error.message);
+            }
+        }
+
+        async function testCategories() {
+            try {
+                const response = await fetch(`${API_BASE}/api/categories`);
+                const data = await response.json();
+                displayResult('categories-result', response.ok, { status: response.status, data });
+            } catch (error) {
+                displayResult('categories-result', false, null, error.message);
+            }
+        }
+
+        async function testInterests() {
+            try {
+                const response = await fetch(`${API_BASE}/api/interests`);
+                const data = await response.json();
+                displayResult('interests-result', response.ok, { status: response.status, data });
+            } catch (error) {
+                displayResult('interests-result', false, null, error.message);
+            }
+        }
+
+        async function testRegistration() {
+            try {
+                const response = await fetch(`${API_BASE}/api/register`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        full_name: 'Test User',
+                        email: 'test@example.com',
+                        username: 'testuser123',
+                        password: 'password123',
+                        terms_accepted: true
+                    })
+                });
+                const data = await response.json();
+                displayResult('registration-result', response.ok, { status: response.status, data });
+            } catch (error) {
+                displayResult('registration-result', false, null, error.message);
+            }
+        }
+    </script>
+</body>
+</html>

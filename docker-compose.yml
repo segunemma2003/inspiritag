@@ -1,0 +1,129 @@
+services:
+  app:
+    build: .
+    container_name: [PROJECT_NAME]-api
+    restart: unless-stopped
+    working_dir: /var/www/html
+    volumes:
+      - ./:/var/www/html
+      - ./docker/nginx.conf:/etc/nginx/sites-available/default
+      - ./docker/supervisord.conf:/etc/supervisor/conf.d/supervisord.conf
+      - ./docker/php.ini:/usr/local/etc/php/conf.d/custom.ini
+    ports:
+      - "80:80"
+    environment:
+      - APP_ENV=production
+      - APP_DEBUG=false
+      - APP_KEY=base64:your-app-key-here
+      - DB_CONNECTION=mysql
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_DATABASE=[PROJECT_NAME]
+      - DB_USERNAME=[PROJECT_NAME]_user
+      - DB_PASSWORD=[PROJECT_NAME]_password
+      - CACHE_DRIVER=redis
+      - REDIS_HOST=redis
+      - REDIS_PASSWORD=null
+      - REDIS_PORT=6379
+      - QUEUE_CONNECTION=redis
+    depends_on:
+      - mysql
+      - redis
+    networks:
+      - [PROJECT_NAME]-network
+
+  mysql:
+    image: mysql:8.0
+    container_name: [PROJECT_NAME]-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: [PROJECT_NAME]
+      MYSQL_USER: [PROJECT_NAME]_user
+      MYSQL_PASSWORD: [PROJECT_NAME]_password
+      MYSQL_ROOT_PASSWORD: root_password
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./docker/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "3306:3306"
+    networks:
+      - [PROJECT_NAME]-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: [PROJECT_NAME]-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - [PROJECT_NAME]-network
+
+
+  queue:
+    build: .
+    container_name: [PROJECT_NAME]-queue
+    restart: unless-stopped
+    working_dir: /var/www/html
+    command: php artisan queue:work --tries=3 --timeout=30
+    volumes:
+      - ./:/var/www/html
+    environment:
+      - APP_ENV=production
+      - APP_DEBUG=false
+      - APP_KEY=base64:your-app-key-here
+      - DB_CONNECTION=mysql
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_DATABASE=[PROJECT_NAME]
+      - DB_USERNAME=[PROJECT_NAME]_user
+      - DB_PASSWORD=[PROJECT_NAME]_password
+      - CACHE_DRIVER=redis
+      - REDIS_HOST=redis
+      - REDIS_PASSWORD=null
+      - REDIS_PORT=6379
+      - QUEUE_CONNECTION=redis
+    depends_on:
+      - mysql
+      - redis
+    networks:
+      - [PROJECT_NAME]-network
+
+  scheduler:
+    build: .
+    container_name: [PROJECT_NAME]-scheduler
+    restart: unless-stopped
+    working_dir: /var/www/html
+    command: php artisan schedule:work
+    volumes:
+      - ./:/var/www/html
+    environment:
+      - APP_ENV=production
+      - APP_DEBUG=false
+      - APP_KEY=base64:your-app-key-here
+      - DB_CONNECTION=mysql
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_DATABASE=[PROJECT_NAME]
+      - DB_USERNAME=[PROJECT_NAME]_user
+      - DB_PASSWORD=[PROJECT_NAME]_password
+      - CACHE_DRIVER=redis
+      - REDIS_HOST=redis
+      - REDIS_PASSWORD=null
+      - REDIS_PORT=6379
+      - QUEUE_CONNECTION=redis
+    depends_on:
+      - mysql
+      - redis
+    networks:
+      - [PROJECT_NAME]-network
+
+volumes:
+  mysql_data:
+  redis_data:
+
+networks:
+  [PROJECT_NAME]-network:
+    driver: bridge

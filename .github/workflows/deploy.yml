@@ -1,0 +1,141 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          password: ${{ secrets.VPS_PASSWORD }}
+          port: 22
+          script: |
+            # Navigate to project directory
+            cd /var/www/inspirtag
+
+            # Pull latest changes
+            echo "🔄 Pulling latest changes..."
+            git pull origin main
+
+            # Check if Docker is running
+            if ! docker info > /dev/null 2>&1; then
+              echo "🐳 Starting Docker..."
+              sudo systemctl start docker
+              sleep 5
+            fi
+
+            # Check if containers need rebuilding
+            echo "🔍 Checking for changes..."
+            if [ -f "docker-compose.yml" ]; then
+              # Check if docker-compose.yml, Dockerfile, or nginx config changed
+              if git diff HEAD~1 HEAD --name-only | grep -E "(Dockerfile|docker-compose.yml|composer.json|package.json|docker/nginx.conf)" > /dev/null; then
+                echo "🔨 Rebuilding containers..."
+                docker-compose down --remove-orphans
+                docker-compose build --no-cache
+                docker-compose up -d
+              else
+                echo "📦 No container changes detected, but checking if containers are healthy..."
+                # Check if app container is running and healthy
+                if ! docker-compose ps app | grep -q "Up"; then
+                  echo "🔨 App container is not running, rebuilding..."
+                  docker-compose down --remove-orphans
+                  docker-compose build --no-cache
+                  docker-compose up -d
+                else
+                  echo "📦 Containers are healthy, restarting services..."
+                  docker-compose restart
+                fi
+              fi
+            fi
+
+            # Wait for services to be ready
+            echo "⏳ Waiting for services to start..."
+            sleep 10
+
+            # Run database migrations
+            echo "🗄️ Running database migrations..."
+            docker-compose exec -T app php artisan migrate --force
+
+            # Run seeders if needed (only for first deploy or when seeders change)
+            if git diff HEAD~1 HEAD --name-only | grep -E "(database/seeders)" > /dev/null; then
+              echo "🌱 Running database seeders..."
+              docker-compose exec -T app php artisan db:seed --force
+            fi
+
+            # Clear caches
+            echo "🧹 Clearing caches..."
+            docker-compose exec -T app php artisan cache:clear
+            docker-compose exec -T app php artisan config:clear
+            docker-compose exec -T app php artisan route:clear
+            docker-compose exec -T app php artisan view:clear
+
+            # Warm up caches
+            echo "🔥 Warming up caches..."
+            docker-compose exec -T app php artisan cache:warm-up
+
+            # Restart queue workers
+            echo "🔄 Restarting queue workers..."
+            docker-compose exec -T app php artisan queue:restart
+
+            # Health check
+            echo "🏥 Performing health check..."
+            sleep 10
+
+            # Check if containers are running
+            echo "📊 Checking container status..."
+            docker-compose ps
+
+            # Check if app container is running
+            if ! docker-compose ps app | grep -q "Up"; then
+              echo "❌ App container is not running"
+              docker-compose logs app
+              exit 1
+            fi
+
+            # Wait for app to be ready
+            echo "⏳ Waiting for app to be ready..."
+            for i in {1..30}; do
+              if curl -f http://localhost/health > /dev/null 2>&1; then
+                echo "✅ Health endpoint is responding"
+                break
+              else
+                echo "⏳ Attempt $i/30: Health endpoint not ready yet, waiting..."
+                sleep 2
+              fi
+            done
+
+            # Test API endpoint
+            echo "🧪 Testing API endpoint..."
+            if curl -f http://localhost/api/categories > /dev/null 2>&1; then
+              echo "✅ API is responding successfully"
+            else
+              echo "⚠️ API endpoint not ready, but health check passed"
+              echo "📊 Container logs:"
+              docker-compose logs app
+            fi
+
+            # Check Docker containers status
+            echo "📊 Container status:"
+            docker-compose ps
+
+            echo "🎉 Deployment completed successfully!"
+
+      - name: Notify deployment status
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ Deployment successful!"
+          else
+            echo "❌ Deployment failed!"
+          fi
