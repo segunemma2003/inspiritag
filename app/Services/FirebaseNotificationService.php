@@ -31,7 +31,7 @@ class FirebaseNotificationService
     {
         try {
             $credentialsFile = config('services.firebase.credentials_file');
-            
+
             if (!file_exists($credentialsFile)) {
                 Log::error('Firebase credentials file not found: ' . $credentialsFile);
                 return;
