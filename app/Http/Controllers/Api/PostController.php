@@ -501,8 +501,8 @@ class PostController extends Controller
         $contentType = $request->content_type;
         $fileSize = $request->file_size;
 
-        // Check if file is large enough to require presigned URL (500MB threshold)
-        $largeFileThreshold = 500 * 1024 * 1024; // 500MB in bytes
+        // Check if file is large enough to require presigned URL (50MB threshold)
+        $largeFileThreshold = 50 * 1024 * 1024; // 50MB in bytes
         $isLargeFile = $fileSize >= $largeFileThreshold;
 
         // Generate unique filename
@@ -511,7 +511,7 @@ class PostController extends Controller
         $s3Path = 'posts/' . $uniqueFilename;
 
         if ($isLargeFile) {
-            // For large files (>= 500MB), recommend chunked upload
+            // For large files (>= 50MB), recommend chunked upload
             return response()->json([
                 'success' => true,
                 'message' => 'Large file detected. Use chunked upload for better performance.',
@@ -527,7 +527,7 @@ class PostController extends Controller
             ]);
         }
 
-        // For smaller files (< 500MB), use direct S3 upload
+        // For smaller files (< 50MB), use direct S3 upload
         $presignedUrl = S3Service::getTemporaryUrl($s3Path, now()->addHour(), 'PUT', [
             'Content-Type' => $contentType,
             'Content-Length' => $fileSize,
