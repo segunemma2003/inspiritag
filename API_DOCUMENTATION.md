@@ -1399,99 +1399,75 @@ The API supports Firebase push notifications for:
 -   **File Uploads**: 10 requests/minute
 -   **Search**: 30 requests/minute
 
-### **Performance Monitoring**
-
-**GET** `/system/performance`
-
-Get system performance metrics.
-
-**Response:**
-
-```json
-{
-    "success": true,
-    "data": {
-        "cache_hit_rate": 85.5,
-        "avg_response_time": 120,
-        "active_users": 1250,
-        "database_connections": 45,
-        "memory_usage": "512MB",
-        "disk_usage": "2.1GB"
-    }
-}
-```
 
 ---
 
-## 🛠️ **System Endpoints**
+## 🛠️ **System Monitoring**
 
-### **Health Check**
+> **Note**: System monitoring is handled through Laravel console commands, not API endpoints. These commands are designed for server administration and monitoring.
 
-**GET** `/health`
+### **Available Console Commands**
 
-Check API health status.
+#### **Performance Monitoring**
+```bash
+# Real-time performance dashboard
+php artisan performance:dashboard
 
-**Response:**
+# Performance metrics
+php artisan performance:monitor --detailed
 
-```json
-{
-    "status": "healthy",
-    "timestamp": "2024-01-15T10:30:00Z",
-    "services": {
-        "database": "connected",
-        "redis": "connected",
-        "s3": "connected",
-        "firebase": "connected"
-    }
-}
+# System health check
+php artisan system:health-check --detailed
 ```
 
-### **System Status**
+#### **Database Health**
+```bash
+# Database health check
+php artisan db:health-check
 
-**GET** `/system/status`
-
-Get detailed system status.
-
-**Response:**
-
-```json
-{
-    "success": true,
-    "data": {
-        "api_version": "1.0.0",
-        "laravel_version": "12.0",
-        "php_version": "8.2",
-        "database_status": "connected",
-        "cache_status": "connected",
-        "queue_status": "running",
-        "uptime": "7 days, 12 hours"
-    }
-}
+# Fix common database issues
+php artisan db:health-check --fix
 ```
 
-### **Database Health**
+#### **Cache Management**
+```bash
+# Cache status and statistics
+php artisan cache:manage status
+php artisan cache:manage stats
 
-**GET** `/system/database-health`
-
-Check database performance and health.
-
-**Response:**
-
-```json
-{
-    "success": true,
-    "data": {
-        "connection_count": 12,
-        "slow_queries": 0,
-        "table_sizes": {
-            "users": "2.5MB",
-            "posts": "15.2MB",
-            "notifications": "1.8MB"
-        },
-        "index_usage": "optimal"
-    }
-}
+# Clear and warm cache
+php artisan cache:manage clear
+php artisan cache:manage warm
 ```
+
+#### **Queue Management**
+```bash
+# Queue status and monitoring
+php artisan queue:manage status
+php artisan queue:manage monitor
+
+# Queue statistics
+php artisan queue:manage stats
+```
+
+### **Scheduled Monitoring**
+
+The system automatically runs monitoring tasks:
+
+- **Cache Warming**: Every 5 minutes
+- **Performance Monitoring**: Every 10 minutes  
+- **Database Health Check**: Every 30 minutes
+- **System Health Check**: Every hour
+- **Cache Cleanup**: Every 6 hours
+- **Queue Monitoring**: Every 15 minutes
+- **Performance Testing**: Daily at 2 AM
+
+### **Performance Metrics**
+
+- **Database**: < 50ms connection, < 100ms queries
+- **Cache**: < 10ms write, < 5ms read, > 80% hit rate
+- **Queue**: < 30s job processing, < 1% failure rate
+- **System**: < 80% memory, < 70% CPU, < 90% disk
 
 ---
 
