@@ -53,17 +53,17 @@ Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
     Route::get('/posts', [PostController::class, 'index']);
     Route::post('/posts', [PostController::class, 'store']);
 
-    // User's saved and liked posts (must be before /posts/{post} route)
-    Route::get('/posts/saved', [PostController::class, 'getSavedPosts']);
-    Route::get('/posts/liked', [PostController::class, 'getLikedPosts']);
+    // User's saved and liked posts - using different route structure
+    Route::get('/user-saved-posts', [PostController::class, 'getSavedPosts']);
+    Route::get('/user-liked-posts', [PostController::class, 'getLikedPosts']);
 
     // Alternative routes for saved and liked posts
-    Route::get('/user/saved-posts', [PostController::class, 'getSavedPosts']);
-    Route::get('/user/liked-posts', [PostController::class, 'getLikedPosts']);
-
-    // Additional alternative routes
     Route::get('/saved-posts', [PostController::class, 'getSavedPosts']);
     Route::get('/liked-posts', [PostController::class, 'getLikedPosts']);
+
+    // Additional alternative routes
+    Route::get('/my-saved-posts', [PostController::class, 'getSavedPosts']);
+    Route::get('/my-liked-posts', [PostController::class, 'getLikedPosts']);
 
     // Efficient upload routes for large files
     Route::post('/posts/upload-url', [PostController::class, 'getUploadUrl']);
