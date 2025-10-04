@@ -52,10 +52,10 @@ Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
     // Post routes
     Route::get('/posts', [PostController::class, 'index']);
     Route::post('/posts', [PostController::class, 'store']);
-    Route::get('/posts/{post}', [PostController::class, 'show']);
-    Route::delete('/posts/{post}', [PostController::class, 'destroy']);
-    Route::post('/posts/{post}/like', [PostController::class, 'like']);
-    Route::post('/posts/{post}/save', [PostController::class, 'save']);
+
+    // User's saved and liked posts (must be before /posts/{post} route)
+    Route::get('/posts/saved', [PostController::class, 'getSavedPosts']);
+    Route::get('/posts/liked', [PostController::class, 'getLikedPosts']);
 
     // Efficient upload routes for large files
     Route::post('/posts/upload-url', [PostController::class, 'getUploadUrl']);
@@ -63,12 +63,14 @@ Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
     Route::post('/posts/chunked-upload-url', [PostController::class, 'getChunkedUploadUrl']);
     Route::post('/posts/complete-chunked-upload', [PostController::class, 'completeChunkedUpload']);
 
-    // User's saved and liked posts
-    Route::get('/posts/saved', [PostController::class, 'getSavedPosts']);
-    Route::get('/posts/liked', [PostController::class, 'getLikedPosts']);
-
     // Post search by tags
     Route::post('/posts/search/tags', [PostController::class, 'searchByTags']);
+
+    // Individual post routes (must be after specific routes)
+    Route::get('/posts/{post}', [PostController::class, 'show']);
+    Route::delete('/posts/{post}', [PostController::class, 'destroy']);
+    Route::post('/posts/{post}/like', [PostController::class, 'like']);
+    Route::post('/posts/{post}/save', [PostController::class, 'save']);
 
     // Search routes
     Route::get('/search', [PostController::class, 'search']);
