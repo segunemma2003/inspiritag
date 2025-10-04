@@ -57,6 +57,10 @@ Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
     Route::get('/posts/saved', [PostController::class, 'getSavedPosts']);
     Route::get('/posts/liked', [PostController::class, 'getLikedPosts']);
 
+    // Alternative routes for saved and liked posts
+    Route::get('/user/saved-posts', [PostController::class, 'getSavedPosts']);
+    Route::get('/user/liked-posts', [PostController::class, 'getLikedPosts']);
+
     // Efficient upload routes for large files
     Route::post('/posts/upload-url', [PostController::class, 'getUploadUrl']);
     Route::post('/posts/create-from-s3', [PostController::class, 'createFromS3']);
