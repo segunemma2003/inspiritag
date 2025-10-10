@@ -6,8 +6,26 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Aws\S3\S3Client;
+use Aws\Exception\AwsException;
+
 class S3Service
 {
+    /**
+     * Get configured S3 client
+     */
+    private static function getS3Client(): S3Client
+    {
+        return new S3Client([
+            'version' => 'latest',
+            'region' => config('filesystems.disks.s3.region'),
+            'credentials' => [
+                'key' => config('filesystems.disks.s3.key'),
+                'secret' => config('filesystems.disks.s3.secret'),
+            ],
+            'use_path_style_endpoint' => config('filesystems.disks.s3.use_path_style_endpoint', false),
+        ]);
+    }
+
     /**
      * Upload a file to S3
      */
@@ -127,48 +145,50 @@ class S3Service
     }
 
     /**
-     * Generate a temporary URL for S3 operations (alias for getPresignedUrl)
-     */
-     /**
-     * Generate a temporary URL for S3 operations
+     * Generate a temporary URL for S3 operations (FIXED VERSION)
+     * Always generates direct S3 URLs (bypasses CloudFront) for uploads
      */
     public static function getTemporaryUrl(string $path, $expiration, string $method = 'GET', $contentType = null): string
     {
         try {
             if ($method === 'PUT') {
-                // Use AWS SDK directly for PUT presigned URLs
-                $s3Client = new S3Client([
-                    'version' => 'latest',
-                    'region' => config('filesystems.disks.s3.region'),
-                    'credentials' => [
-                        'key' => config('filesystems.disks.s3.key'),
-                        'secret' => config('filesystems.disks.s3.secret'),
-                    ],
-                    'use_path_style_endpoint' => false, // Important for virtual-hosted style
-                ]);
+                $s3Client = self::getS3Client();
 
-                $params = [
+                $commandParams = [
                     'Bucket' => config('filesystems.disks.s3.bucket'),
                     'Key' => $path,
                 ];
 
-                // Add Content-Type if provided
+                // CRITICAL: Add ContentType to the command params
                 if ($contentType) {
-                    $params['ContentType'] = $contentType;
+                    $commandParams['ContentType'] = $contentType;
                 }
 
-                $command = $s3Client->getCommand('PutObject', $params);
+                $command = $s3Client->getCommand('PutObject', $commandParams);
 
                 $request = $s3Client->createPresignedRequest($command, $expiration);
 
-                return (string) $request->getUri();
+                // Get the direct S3 URL (not CloudFront)
+                $directUrl = (string) $request->getUri();
+
+                \Log::info('Generated presigned URL', [
+                    'path' => $path,
+                    'content_type' => $contentType,
+                    'url_host' => parse_url($directUrl, PHP_URL_HOST),
+                    'method' => $method,
+                ]);
+
+                return $directUrl;
             }
 
             // For GET requests, use Laravel's method
             return Storage::disk('s3')->temporaryUrl($path, $expiration);
+        } catch (AwsException $e) {
+            \Log::error("AWS Error generating temporary URL for: {$path}. Error: " . $e->getAwsErrorMessage());
+            return self::getFileUrl($path);
         } catch (\Exception $e) {
             \Log::error("Failed to generate temporary URL for: {$path}. Error: " . $e->getMessage());
-            throw $e;
+            return self::getFileUrl($path);
         }
     }
 
@@ -177,25 +197,19 @@ class S3Service
      */
     public static function uploadWithCDN(UploadedFile $file, string $folder = 'uploads'): array
     {
-        $filename = time() . '_' . Str::random(10) . '.' . $file->getClientOriginalExtension();
-        $path = $folder . '/' . $filename;
-        
-        // Use Laravel's built-in S3 upload which handles large files better
-        Storage::disk('s3')->put($path, file_get_contents($file->getRealPath()), [
-            'ContentType' => $file->getMimeType()
-        ]);
-        
-        $url = Storage::disk('s3')->url($path);
+        $uploadResult = self::uploadFile($file, $folder);
 
-        return [
-            'path' => $path,
-            'url' => $url,
-            'filename' => $filename,
-            'size' => $file->getSize(),
-            'mime_type' => $file->getMimeType(),
-        ];
+        // Add CDN URL if configured
+        if (config('filesystems.disks.s3.cdn_url')) {
+            $uploadResult['cdn_url'] = str_replace(
+                config('filesystems.disks.s3.url'),
+                config('filesystems.disks.s3.cdn_url'),
+                $uploadResult['url']
+            );
+        }
+
+        return $uploadResult;
     }
-
 
     /**
      * Generate thumbnail for images

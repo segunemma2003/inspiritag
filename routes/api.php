@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\PostController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\BusinessAccountController;
+use App\Http\Controllers\Api\DebugController;
 use App\Http\Controllers\Api\NotificationController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -28,7 +29,9 @@ Route::post('/reset-password', [AuthController::class, 'resetPassword']);
 Route::post('/verify-firebase-token', [AuthController::class, 'verifyFirebaseToken']);
 Route::get('/interests', [UserController::class, 'getInterests']); // Public interests list
 Route::get('/categories', [CategoryController::class, 'index']); // Public categories list
-
+// routes/api.php
+Route::get('/debug/s3-config', [DebugController::class, 'checkS3Config']);
+Route::get('/debug/test-presigned', [DebugController::class, 'testPresignedUrl']);
 // Protected routes
 Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
     // Auth routes
