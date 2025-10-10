@@ -510,22 +510,22 @@ class PostController extends Controller
         $uniqueFilename = time() . '_' . $user->id . '_' . Str::random(10) . '.' . $extension;
         $s3Path = 'posts/' . $uniqueFilename;
 
-        if ($isLargeFile) {
-            // For large files (>= 50MB), recommend chunked upload
-            return response()->json([
-                'success' => true,
-                'message' => 'Large file detected. Use chunked upload for better performance.',
-                'data' => [
-                    'upload_method' => 'chunked',
-                    'file_path' => $s3Path,
-                    'file_url' => S3Service::getUrl($s3Path),
-                    'file_size' => $fileSize,
-                    'threshold_exceeded' => true,
-                    'recommended_chunk_size' => min(50 * 1024 * 1024, $fileSize / 20), // 50MB chunks or file_size/20
-                    'chunked_upload_endpoint' => '/api/posts/chunked-upload-url'
-                ]
-            ]);
-        }
+        // if ($isLargeFile) {
+        //     // For large files (>= 50MB), recommend chunked upload
+        //     return response()->json([
+        //         'success' => true,
+        //         'message' => 'Large file detected. Use chunked upload for better performance.',
+        //         'data' => [
+        //             'upload_method' => 'chunked',
+        //             'file_path' => $s3Path,
+        //             'file_url' => S3Service::getUrl($s3Path),
+        //             'file_size' => $fileSize,
+        //             'threshold_exceeded' => true,
+        //             'recommended_chunk_size' => min(50 * 1024 * 1024, $fileSize / 20), // 50MB chunks or file_size/20
+        //             'chunked_upload_endpoint' => '/api/posts/chunked-upload-url'
+        //         ]
+        //     ]);
+        // }
 
         // For smaller files (< 50MB), use direct S3 upload
         $presignedUrl = S3Service::getTemporaryUrl($s3Path, now()->addHour(), 'PUT', [
