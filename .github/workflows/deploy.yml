@@ -129,9 +129,25 @@ jobs:
                 break
               else
                 echo "⏳ Attempt $i/30: Health endpoint not ready yet, waiting..."
+                echo "📊 Container status:"
+                docker-compose ps
+                echo "📋 App container logs:"
+                docker-compose logs --tail=20 app
                 sleep 2
               fi
             done
+
+            # Final health check with detailed error reporting
+            if ! curl -f http://localhost/health > /dev/null 2>&1; then
+              echo "❌ Health check failed after 30 attempts"
+              echo "📊 Final container status:"
+              docker-compose ps
+              echo "📋 All container logs:"
+              docker-compose logs
+              echo "🔍 Network connectivity test:"
+              docker-compose exec app curl -f http://localhost/health || echo "Health check failed from inside container"
+              exit 1
+            fi
 
             # Test API endpoint
             echo "🧪 Testing API endpoint..."

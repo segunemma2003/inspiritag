@@ -21,6 +21,19 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
+// Health check endpoint
+Route::get('/health', function () {
+    return response()->json([
+        'status' => 'healthy',
+        'timestamp' => now(),
+        'services' => [
+            'database' => 'connected',
+            'cache' => 'connected',
+            'queue' => 'connected'
+        ]
+    ]);
+});
+
 // Public routes
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);

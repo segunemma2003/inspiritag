@@ -5,8 +5,9 @@ echo "🚀 Starting Laravel application setup..."
 
 # Wait for MySQL to be ready
 echo "⏳ Waiting for MySQL to be ready..."
-while ! mysqladmin ping -h"mysql" -u"your_database_user" -p"your_database_password" --silent; do
-    sleep 1
+while ! mysqladmin ping -h"mysql" -u"${DB_USERNAME}" -p"${DB_PASSWORD}" --silent; do
+    echo "Waiting for MySQL..."
+    sleep 2
 done
 echo "✅ MySQL is ready!"
 
