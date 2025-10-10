@@ -479,9 +479,8 @@ class PostController extends Controller
     /**
      * Test method for debugging
      */
-    public function testUpload(Request $request)
+    public function testUpload()
     {
-        Log::info('testUpload method called', ['request' => $request->all()]);
         return response()->json(['success' => true, 'message' => 'Test upload method working']);
     }
 
@@ -494,7 +493,7 @@ class PostController extends Controller
     public function getUploadUrl(Request $request)
     {
         Log::info('getUploadUrl method called', ['request' => $request->all()]);
-        
+
         $validator = Validator::make($request->all(), [
             'filename' => 'required|string|max:255',
             'content_type' => 'required|string',
