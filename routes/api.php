@@ -30,6 +30,10 @@ Route::post('/verify-firebase-token', [AuthController::class, 'verifyFirebaseTok
 Route::get('/interests', [UserController::class, 'getInterests']); // Public interests list
 Route::get('/categories', [CategoryController::class, 'index']); // Public categories list
 
+// Debug routes (public for testing)
+Route::get('/debug/s3-config', [DebugController::class, 'checkS3Config']);
+Route::get('/debug/presigned-url', [DebugController::class, 'testPresignedUrl']);
+
 // Protected routes
 Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
     // Auth routes
@@ -121,9 +125,6 @@ Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
         Route::post('/test', [App\Http\Controllers\Api\NotificationController::class, 'sendTest']);
     });
 
-    // Debug routes
-    Route::get('/debug/s3-config', [DebugController::class, 'checkS3Config']);
-    Route::get('/debug/presigned-url', [DebugController::class, 'testPresignedUrl']);
 
     // Admin routes
     Route::middleware('admin')->group(function () {
