@@ -504,7 +504,7 @@ class PostController extends Controller
     // Generate unique filename
     $extension = pathinfo($filename, PATHINFO_EXTENSION);
     $uniqueFilename = time() . '_' . $user->id . '_' . Str::random(10) . '.' . $extension;
-    $s3Path = 'posts/' . $uniqueFilename;
+    $s3Path =  $uniqueFilename;
 
     try {
         // Generate presigned URL with proper content type
