@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Auth;
 
 class PostController extends Controller
 {
@@ -490,7 +491,7 @@ class PostController extends Controller
     public function getSimpleUploadUrl(Request $request)
     {
         Log::info('getSimpleUploadUrl method called', ['request' => $request->all()]);
-        
+
         try {
             // Generate a simple presigned URL
             $presignedService = new PresignedUrlService(new S3Service());
@@ -499,7 +500,7 @@ class PostController extends Controller
                 'image/jpeg',
                 15
             );
-            
+
             if ($result['success']) {
                 return response()->json([
                     'success' => true,
@@ -548,7 +549,7 @@ class PostController extends Controller
         }
 
         try {
-            $user = $request->user();
+            $user = Auth::user();
 
             // Handle authentication issue
             if (!$user) {
@@ -557,10 +558,12 @@ class PostController extends Controller
                     'token' => $request->bearerToken(),
                     'user_agent' => $request->userAgent()
                 ]);
-
-                // For testing purposes, use a default user ID
-                $user = (object) ['id' => 1];
-                Log::info('Using default user for testing', ['user_id' => $user->id]);
+                
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Authentication required',
+                    'error' => 'User not authenticated'
+                ], 401);
             }
 
             $filename = $request->filename;
