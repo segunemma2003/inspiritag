@@ -28,6 +28,9 @@ jobs:
             echo "🔄 Pulling latest changes..."
             git pull origin main
 
+            # Make fix script executable
+            chmod +x fix_server_docker.sh
+
             # Check if Docker is running
             if ! docker info > /dev/null 2>&1; then
               echo "🐳 Starting Docker..."
@@ -58,6 +61,30 @@ jobs:
                 fi
               fi
             fi
+
+            # Ensure all containers are running
+            echo "🔍 Ensuring all containers are running..."
+            docker-compose up -d
+
+            # Wait for services to be ready with proper health checks
+            echo "⏳ Waiting for services to start with health checks..."
+            timeout 300 bash -c 'until docker-compose ps | grep -q "healthy"; do
+              echo "Waiting for services to be healthy..."
+              docker-compose ps
+              sleep 5
+            done' || {
+              echo "❌ Services failed to become healthy within 5 minutes"
+              echo "🔧 Running Docker fix script..."
+              ./fix_server_docker.sh
+              
+              # Check again after fix
+              if ! curl -f http://localhost/health > /dev/null 2>&1; then
+                echo "❌ Services still not healthy after fix"
+                docker-compose ps
+                docker-compose logs
+                exit 1
+              fi
+            }
 
             # Wait for services to be ready
             echo "⏳ Waiting for services to start..."

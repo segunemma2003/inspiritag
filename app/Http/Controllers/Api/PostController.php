@@ -477,6 +477,15 @@ class PostController extends Controller
     }
 
     /**
+     * Test method for debugging
+     */
+    public function testUpload(Request $request)
+    {
+        Log::info('testUpload method called', ['request' => $request->all()]);
+        return response()->json(['success' => true, 'message' => 'Test upload method working']);
+    }
+
+    /**
      * Get presigned URL for direct S3 upload (for large files)
      * Automatically chooses upload method based on file size:
      * - < 500MB: Direct S3 upload

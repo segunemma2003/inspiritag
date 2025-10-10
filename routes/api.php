@@ -39,6 +39,9 @@ Route::post('/test-upload', function () {
     return response()->json(['success' => true, 'message' => 'Test route working']);
 });
 
+// Test controller method
+Route::post('/test-controller-upload', [PostController::class, 'testUpload']);
+
 // Public routes
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);

@@ -291,7 +291,7 @@ $baseUrl = 'http://38.180.244.178';
 $test = new PresignedUploadTest($baseUrl);
 
 // Configuration - Update these with your test credentials
-$email = 'testuser1760092397@example.com';
+$email = 'test@example.com';
 $password = 'password123';
 
 echo "🚀 Presigned Upload Test Suite\n";
