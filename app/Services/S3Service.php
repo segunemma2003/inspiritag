@@ -24,6 +24,7 @@ class S3Service
                 'secret' => config('filesystems.disks.s3.secret'),
             ],
             'use_path_style_endpoint' => config('filesystems.disks.s3.use_path_style_endpoint', false),
+            'endpoint' => 'https://s3.eu-north-1.amazonaws.com', // Force the correct region endpoint
         ]);
     }
 
@@ -153,10 +154,24 @@ class S3Service
     {
         try {
             if ($method === 'PUT') {
-                // Use Laravel's built-in method with proper parameters
-                $presignedUrl = Storage::disk('s3')->temporaryUrl($path, $expiration);
+                // Use AWS SDK to ensure correct region endpoint
+                $s3Client = self::getS3Client();
 
-                Log::info('Generated presigned URL using Laravel built-in method', [
+                $commandParams = [
+                    'Bucket' => config('filesystems.disks.s3.bucket'),
+                    'Key' => $path,
+                ];
+
+                // Add ContentType to the command params
+                if ($contentType) {
+                    $commandParams['ContentType'] = $contentType;
+                }
+
+                $command = $s3Client->getCommand('PutObject', $commandParams);
+                $request = $s3Client->createPresignedRequest($command, $expiration);
+                $presignedUrl = (string) $request->getUri();
+
+                Log::info('Generated presigned URL with correct region endpoint', [
                     'path' => $path,
                     'content_type' => $contentType,
                     'url_host' => parse_url($presignedUrl, PHP_URL_HOST),
