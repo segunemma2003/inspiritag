@@ -81,6 +81,16 @@ Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
 // Test controller method
 Route::post('/test-controller-upload', [PostController::class, 'testUpload']);
 
+// Test S3Service directly
+Route::post('/test-s3-service', function() {
+    try {
+        $s3Service = new \App\Services\S3Service();
+        return response()->json(['success' => true, 'message' => 'S3Service instantiated successfully']);
+    } catch (\Exception $e) {
+        return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
+    }
+});
+
 // Test new controller
 Route::post('/test-new-controller', [TestController::class, 'test']);
 
