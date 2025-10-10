@@ -26,6 +26,14 @@ services:
       - REDIS_PASSWORD=null
       - REDIS_PORT=6379
       - QUEUE_CONNECTION=redis
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION}
+      - AWS_BUCKET=${AWS_BUCKET}
+      - AWS_URL=${AWS_URL}
+      - AWS_CDN_URL=${AWS_CDN_URL}
+      - AWS_ENDPOINT=${AWS_ENDPOINT}
+      - AWS_USE_PATH_STYLE_ENDPOINT=${AWS_USE_PATH_STYLE_ENDPOINT}
     depends_on:
       - mysql
       - redis
