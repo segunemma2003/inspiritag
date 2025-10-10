@@ -164,5 +164,4 @@ volumes:
 networks:
   inspirtag-network:
     driver: bridge
-env_file:
-      - .env
+
