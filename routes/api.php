@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\PostController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\BusinessAccountController;
 use App\Http\Controllers\Api\NotificationController;
+use App\Http\Controllers\Api\DebugController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -119,6 +120,10 @@ Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
         Route::delete('/', [App\Http\Controllers\Api\NotificationController::class, 'deleteAll']);
         Route::post('/test', [App\Http\Controllers\Api\NotificationController::class, 'sendTest']);
     });
+
+    // Debug routes
+    Route::get('/debug/s3-config', [DebugController::class, 'checkS3Config']);
+    Route::get('/debug/presigned-url', [DebugController::class, 'testPresignedUrl']);
 
     // Admin routes
     Route::middleware('admin')->group(function () {
