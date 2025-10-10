@@ -76,7 +76,7 @@ jobs:
               echo "❌ Services failed to become healthy within 5 minutes"
               echo "🔧 Running Docker fix script..."
               ./fix_server_docker.sh
-              
+
               # Check again after fix
               if ! curl -f http://localhost/health > /dev/null 2>&1; then
                 echo "❌ Services still not healthy after fix"
