@@ -86,7 +86,7 @@ class DebugController extends Controller
     {
         try {
             $s3Config = config('filesystems.disks.s3');
-            
+
             return response()->json([
                 'success' => true,
                 'config' => [

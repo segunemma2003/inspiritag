@@ -147,31 +147,34 @@ class S3Service
     }
 
     /**
-     * Generate a temporary URL for S3 operations (FIXED VERSION)
-     * Always generates direct S3 URLs (bypasses CloudFront) for uploads
+     * Generate a temporary URL for S3 operations using proper Flysystem approach
+     * Uses the recommended method from Stack Overflow for bulletproof presigned URLs
      */
     public static function getTemporaryUrl(string $path, $expiration, string $method = 'GET', $contentType = null): string
     {
         try {
             if ($method === 'PUT') {
-                // Use AWS SDK directly for PUT requests (Laravel's temporaryUrl is for GET only)
-                $s3Client = self::getS3Client();
+                // Use proper Flysystem approach for PUT requests (Stack Overflow recommended)
+                $disk = Storage::disk('s3');
+                
+                // Get the underlying S3 client from Flysystem
+                $adapter = $disk->getDriver()->getAdapter();
+                $client = $adapter->getClient();
+                $bucket = config('filesystems.disks.s3.bucket');
 
-                $commandParams = [
-                    'Bucket' => config('filesystems.disks.s3.bucket'),
+                // Build a PutObject command
+                $cmd = $client->getCommand('PutObject', [
+                    'Bucket' => $bucket,
                     'Key' => $path,
-                ];
+                    'ContentType' => $contentType,
+                    'ACL' => 'private', // Ensure private access
+                ]);
 
-                // Add ContentType to the command params
-                if ($contentType) {
-                    $commandParams['ContentType'] = $contentType;
-                }
+                // Create the presigned request
+                $presignedRequest = $client->createPresignedRequest($cmd, $expiration);
+                $presignedUrl = (string) $presignedRequest->getUri();
 
-                $command = $s3Client->getCommand('PutObject', $commandParams);
-                $request = $s3Client->createPresignedRequest($command, $expiration);
-                $presignedUrl = (string) $request->getUri();
-
-                Log::info('Generated presigned URL using AWS SDK for PUT request', [
+                Log::info('Generated presigned URL using Flysystem approach for PUT request', [
                     'path' => $path,
                     'content_type' => $contentType,
                     'url_host' => parse_url($presignedUrl, PHP_URL_HOST),

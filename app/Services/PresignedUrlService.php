@@ -160,7 +160,7 @@ class PresignedUrlService
             for ($i = 0; $i < $chunkCount; $i++) {
                 $chunkKey = "{$key}.part{$i}";
                 $result = self::generateUploadUrl($chunkKey, $contentType, $expirationMinutes);
-                
+
                 if (!$result['success']) {
                     return $result;
                 }
