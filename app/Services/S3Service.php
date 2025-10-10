@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Aws\S3\S3Client;
 use Aws\Exception\AwsException;
+use Illuminate\Support\Facades\Log;
 
 class S3Service
 {
@@ -68,7 +69,7 @@ class S3Service
         try {
             return Storage::disk('s3')->delete($path);
         } catch (\Exception $e) {
-            \Log::error("Failed to delete file from S3: {$path}. Error: " . $e->getMessage());
+            Log::error("Failed to delete file from S3: {$path}. Error: " . $e->getMessage());
             return false;
         }
     }
@@ -139,7 +140,7 @@ class S3Service
         try {
             return Storage::disk('s3')->temporaryUrl($path, now()->addSeconds($expiration));
         } catch (\Exception $e) {
-            \Log::error("Failed to generate presigned URL for: {$path}. Error: " . $e->getMessage());
+            Log::error("Failed to generate presigned URL for: {$path}. Error: " . $e->getMessage());
             return self::getFileUrl($path);
         }
     }
@@ -171,7 +172,7 @@ class S3Service
                 // Get the direct S3 URL (not CloudFront)
                 $directUrl = (string) $request->getUri();
 
-                \Log::info('Generated presigned URL', [
+                Log::info('Generated presigned URL', [
                     'path' => $path,
                     'content_type' => $contentType,
                     'url_host' => parse_url($directUrl, PHP_URL_HOST),
@@ -184,10 +185,10 @@ class S3Service
             // For GET requests, use Laravel's method
             return Storage::disk('s3')->temporaryUrl($path, $expiration);
         } catch (AwsException $e) {
-            \Log::error("AWS Error generating temporary URL for: {$path}. Error: " . $e->getAwsErrorMessage());
+            Log::error("AWS Error generating temporary URL for: {$path}. Error: " . $e->getAwsErrorMessage());
             return self::getFileUrl($path);
         } catch (\Exception $e) {
-            \Log::error("Failed to generate temporary URL for: {$path}. Error: " . $e->getMessage());
+            Log::error("Failed to generate temporary URL for: {$path}. Error: " . $e->getMessage());
             return self::getFileUrl($path);
         }
     }
@@ -221,7 +222,7 @@ class S3Service
             // For now, return the original URL
             return self::getFileUrl($imagePath);
         } catch (\Exception $e) {
-            \Log::error("Failed to generate thumbnail for: {$imagePath}. Error: " . $e->getMessage());
+            Log::error("Failed to generate thumbnail for: {$imagePath}. Error: " . $e->getMessage());
             return null;
         }
     }
@@ -241,7 +242,7 @@ class S3Service
                 'region' => config('filesystems.disks.s3.region'),
             ];
         } catch (\Exception $e) {
-            \Log::error("Failed to get storage stats. Error: " . $e->getMessage());
+            Log::error("Failed to get storage stats. Error: " . $e->getMessage());
             return [];
         }
     }
@@ -286,7 +287,7 @@ class S3Service
                 }
             }
         } catch (\Exception $e) {
-            \Log::error("Failed to cleanup old files. Error: " . $e->getMessage());
+            Log::error("Failed to cleanup old files. Error: " . $e->getMessage());
         }
 
         return $deletedCount;

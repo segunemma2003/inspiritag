@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Services\S3Service;
 use Illuminate\Http\Request;
 
 class DebugController extends Controller
