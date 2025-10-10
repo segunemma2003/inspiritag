@@ -11,6 +11,7 @@ use App\Models\Notification;
 use App\Models\User;
 use App\Services\FirebaseNotificationService;
 use App\Services\S3Service;
+use App\Services\PresignedUrlService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -482,67 +483,70 @@ class PostController extends Controller
      * - >= 500MB: Chunked upload
      */
     public function getUploadUrl(Request $request)
-{
-    $validator = Validator::make($request->all(), [
-        'filename' => 'required|string|max:255',
-        'content_type' => 'required|string|in:image/jpeg,image/png,image/gif,video/mp4,video/mov,video/avi,video/quicktime,video/mpeg,video/webm,video/ogg,video/x-ms-wmv,video/x-ms-asf',
-        'file_size' => 'required|integer|min:1|max:2147483648', // 2GB max
-    ]);
-
-    if ($validator->fails()) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Validation errors',
-            'errors' => $validator->errors()
-        ], 422);
-    }
-
-    try{
-    $user = $request->user();
-    $filename = $request->filename;
-    $contentType = $request->content_type;
-    $fileSize = $request->file_size;
-
-    // Generate unique filename
-    $extension = pathinfo($filename, PATHINFO_EXTENSION);
-    $uniqueFilename = time() . '_' . $user->id . '_' . Str::random(10) . '.' . $extension;
-    $s3Path =  $uniqueFilename;
-
-        // Generate unique filename
-        $extension = pathinfo($filename, PATHINFO_EXTENSION);
-        $uniqueFilename = time() . '_' . $user->id . '_' . Str::random(10) . '.' . $extension;
-        $s3Path = 'posts/' . $uniqueFilename;
-
-        // For smaller files (< 50MB), use direct S3 upload
-        $presignedUrl = S3Service::getTemporaryUrl(
-            $s3Path,
-            now()->addHour(),
-            'PUT',
-            $contentType
-        );
-
-        return response()->json([
-            'success' => true,
-            'data' => [
-                'upload_method' => 'direct',
-                'upload_url' => $presignedUrl,
-                'file_path' => $s3Path,
-                'file_url' => S3Service::getUrl($s3Path),
-                'expires_in' => 3600, // 1 hour
-                'file_size' => $fileSize,
-                'content_type' => $contentType, // Return content type to frontend
-            ]
+    {
+        $validator = Validator::make($request->all(), [
+            'filename' => 'required|string|max:255',
+            'content_type' => 'required|string|in:image/jpeg,image/png,image/gif,video/mp4,video/mov,video/avi,video/quicktime,video/mpeg,video/webm,video/ogg,video/x-ms-wmv,video/x-ms-asf',
+            'file_size' => 'required|integer|min:1|max:2147483648', // 2GB max
         ]);
-    } catch (\Exception $e) {
-        Log::error('Failed to generate presigned URL: ' . $e->getMessage());
 
-        return response()->json([
-            'success' => false,
-            'message' => 'Failed to generate upload URL',
-            'error' => $e->getMessage()
-        ], 500);
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation errors',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        try {
+            $user = $request->user();
+            $filename = $request->filename;
+            $contentType = $request->content_type;
+            $fileSize = $request->file_size;
+
+            // Generate unique filename
+            $extension = pathinfo($filename, PATHINFO_EXTENSION);
+            $uniqueFilename = time() . '_' . $user->id . '_' . Str::random(10) . '.' . $extension;
+            $s3Path = 'posts/' . $uniqueFilename;
+
+            // Use the new bulletproof PresignedUrlService
+            $result = PresignedUrlService::generateUploadUrl(
+                $s3Path,
+                $contentType,
+                15 // 15 minutes expiration
+            );
+
+            if (!$result['success']) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to generate presigned URL',
+                    'error' => $result['error']
+                ], 500);
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'upload_method' => 'direct',
+                    'upload_url' => $result['presigned_url'],
+                    'file_path' => $s3Path,
+                    'file_url' => S3Service::getUrl($s3Path),
+                    'expires_in' => $result['expires_in'],
+                    'file_size' => $fileSize,
+                    'content_type' => $contentType,
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Failed to generate presigned URL: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to generate upload URL',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
-}
 
     /**
      * Create post after successful S3 upload
