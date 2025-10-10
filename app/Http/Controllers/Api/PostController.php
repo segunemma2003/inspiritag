@@ -532,7 +532,7 @@ class PostController extends Controller
             $s3Path,
             now()->addHour(),
             'PUT'
-            // DON'T pass options array with headers
+
         );
 
         return response()->json([
