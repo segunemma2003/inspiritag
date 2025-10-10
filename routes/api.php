@@ -91,6 +91,43 @@ Route::post('/test-s3-service', function() {
     }
 });
 
+// Test AWS SDK directly without Laravel facades
+Route::post('/test-aws-direct', function() {
+    try {
+        // Test AWS SDK directly
+        $s3Client = new \Aws\S3\S3Client([
+            'version' => 'latest',
+            'region' => env('AWS_DEFAULT_REGION', 'eu-north-1'),
+            'credentials' => [
+                'key' => env('AWS_ACCESS_KEY_ID'),
+                'secret' => env('AWS_SECRET_ACCESS_KEY'),
+            ],
+        ]);
+        
+        // Test if we can create a presigned URL directly
+        $cmd = $s3Client->getCommand('PutObject', [
+            'Bucket' => env('AWS_BUCKET'),
+            'Key' => 'test/test_' . time() . '.jpg',
+            'ContentType' => 'image/jpeg',
+        ]);
+        
+        $request = $s3Client->createPresignedRequest($cmd, '+15 minutes');
+        $presignedUrl = (string) $request->getUri();
+        
+        return response()->json([
+            'success' => true, 
+            'message' => 'AWS SDK working directly',
+            'presigned_url' => substr($presignedUrl, 0, 100) . '...'
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false, 
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString()
+        ], 500);
+    }
+});
+
 // Test new controller
 Route::post('/test-new-controller', [TestController::class, 'test']);
 
