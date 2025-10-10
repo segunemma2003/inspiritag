@@ -154,13 +154,24 @@ class S3Service
     {
         try {
             if ($method === 'PUT') {
-                // Use Laravel's built-in method with region-specific configuration
-                $disk = Storage::disk('s3');
-                
-                // Generate presigned URL using Laravel's method
-                $presignedUrl = $disk->temporaryUrl($path, $expiration);
+                // Use AWS SDK directly for PUT requests (Laravel's temporaryUrl is for GET only)
+                $s3Client = self::getS3Client();
 
-                Log::info('Generated presigned URL using Laravel method', [
+                $commandParams = [
+                    'Bucket' => config('filesystems.disks.s3.bucket'),
+                    'Key' => $path,
+                ];
+
+                // Add ContentType to the command params
+                if ($contentType) {
+                    $commandParams['ContentType'] = $contentType;
+                }
+
+                $command = $s3Client->getCommand('PutObject', $commandParams);
+                $request = $s3Client->createPresignedRequest($command, $expiration);
+                $presignedUrl = (string) $request->getUri();
+
+                Log::info('Generated presigned URL using AWS SDK for PUT request', [
                     'path' => $path,
                     'content_type' => $contentType,
                     'url_host' => parse_url($presignedUrl, PHP_URL_HOST),
