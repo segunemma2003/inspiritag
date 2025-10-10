@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\BusinessAccountController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\DebugController;
+use App\Http\Controllers\Api\TestController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -38,21 +39,6 @@ Route::get('/health', function () {
 Route::post('/test-upload', function () {
     return response()->json(['success' => true, 'message' => 'Test route working']);
 });
-
-// Test controller method
-Route::post('/test-controller-upload', [PostController::class, 'testUpload']);
-
-// Test new controller
-Route::post('/test-new-controller', [TestController::class, 'test']);
-
-// Public upload URL route for testing (temporary)
-Route::post('/public-upload-url', [PostController::class, 'getUploadUrl']);
-
-// Simple upload URL route for testing
-Route::post('/simple-upload-url', [PostController::class, 'getSimpleUploadUrl']);
-
-// Working upload URL route (temporary fix)
-Route::post('/working-upload-url', [PostController::class, 'getWorkingUploadUrl']);
 
 // Public routes
 Route::post('/register', [AuthController::class, 'register']);
@@ -91,6 +77,21 @@ Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
     // Post routes
     Route::get('/posts', [PostController::class, 'index']);
     Route::post('/posts', [PostController::class, 'store']);
+
+// Test controller method
+Route::post('/test-controller-upload', [PostController::class, 'testUpload']);
+
+// Test new controller
+Route::post('/test-new-controller', [TestController::class, 'test']);
+
+// Public upload URL route for testing (temporary)
+Route::post('/public-upload-url', [PostController::class, 'getUploadUrl']);
+
+// Simple upload URL route for testing
+Route::post('/simple-upload-url', [PostController::class, 'getSimpleUploadUrl']);
+
+// Working upload URL route (temporary fix)
+Route::post('/working-upload-url', [PostController::class, 'getWorkingUploadUrl']);
 
     // User's saved and liked posts - using different route structure
     Route::get('/user-saved-posts', [PostController::class, 'getSavedPosts']);

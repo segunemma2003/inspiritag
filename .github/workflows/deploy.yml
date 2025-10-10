@@ -28,8 +28,9 @@ jobs:
             echo "🔄 Pulling latest changes..."
             git pull origin main
 
-            # Make fix script executable
+            # Make scripts executable
             chmod +x fix_server_docker.sh
+            chmod +x ensure_containers_running.sh
 
             # Check if Docker is running
             if ! docker info > /dev/null 2>&1; then
@@ -38,33 +39,25 @@ jobs:
               sleep 5
             fi
 
-            # Check if containers need rebuilding
-            echo "🔍 Checking for changes..."
-            if [ -f "docker-compose.yml" ]; then
-              # Check if docker-compose.yml, Dockerfile, or nginx config changed
-              if git diff HEAD~1 HEAD --name-only | grep -E "(Dockerfile|docker-compose.yml|composer.json|package.json|docker/nginx.conf)" > /dev/null; then
-                echo "🔨 Rebuilding containers..."
-                docker-compose down --remove-orphans
-                docker-compose build --no-cache
-                docker-compose up -d
-              else
-                echo "📦 No container changes detected, but checking if containers are healthy..."
-                # Check if app container is running and healthy
-                if ! docker-compose ps app | grep -q "Up"; then
-                  echo "🔨 App container is not running, rebuilding..."
-                  docker-compose down --remove-orphans
-                  docker-compose build --no-cache
-                  docker-compose up -d
-                else
-                  echo "📦 Containers are healthy, restarting services..."
-                  docker-compose restart
-                fi
-              fi
-            fi
+            # Stop all containers gracefully first
+            echo "🛑 Stopping all containers gracefully..."
+            docker-compose down --timeout 30
 
-            # Ensure all containers are running
-            echo "🔍 Ensuring all containers are running..."
+            # Clean up any orphaned containers
+            echo "🧹 Cleaning up orphaned containers..."
+            docker-compose down --remove-orphans
+
+            # Always rebuild to ensure latest code is used
+            echo "🔨 Rebuilding containers with latest code..."
+            docker-compose build --no-cache
+
+            # Start all containers
+            echo "🚀 Starting all containers..."
             docker-compose up -d
+
+            # Ensure containers stay running with restart policy
+            echo "🔄 Setting restart policies..."
+            docker-compose up -d --force-recreate
 
             # Wait for services to be ready with proper health checks
             echo "⏳ Waiting for services to start with health checks..."
@@ -189,6 +182,16 @@ jobs:
             # Check Docker containers status
             echo "📊 Container status:"
             docker-compose ps
+
+            # Set up systemd service for auto-restart on server reboot
+            echo "🔧 Setting up systemd service for auto-restart..."
+            sudo cp inspirtag-docker.service /etc/systemd/system/
+            sudo systemctl daemon-reload
+            sudo systemctl enable inspirtag-docker.service
+
+            # Start container monitoring to ensure they stay running
+            echo "🔄 Starting container monitoring..."
+            ./ensure_containers_running.sh
 
             echo "🎉 Deployment completed successfully!"
 
