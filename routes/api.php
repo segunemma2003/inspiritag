@@ -33,6 +33,7 @@ Route::get('/categories', [CategoryController::class, 'index']); // Public categ
 // Debug routes (public for testing)
 Route::get('/debug/s3-config', [DebugController::class, 'checkS3Config']);
 Route::get('/debug/presigned-url', [DebugController::class, 'testPresignedUrl']);
+Route::get('/debug/aws-config', [DebugController::class, 'debugAwsConfig']);
 
 // Protected routes
 Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {

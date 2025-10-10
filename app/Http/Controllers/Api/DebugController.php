@@ -78,4 +78,43 @@ class DebugController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Debug AWS configuration and credentials
+     */
+    public function debugAwsConfig(Request $request)
+    {
+        try {
+            $s3Config = config('filesystems.disks.s3');
+            
+            return response()->json([
+                'success' => true,
+                'config' => [
+                    'region' => $s3Config['region'] ?? 'Not set',
+                    'bucket' => $s3Config['bucket'] ?? 'Not set',
+                    'key' => $s3Config['key'] ? 'SET' : 'NOT SET',
+                    'secret' => $s3Config['secret'] ? 'SET' : 'NOT SET',
+                    'endpoint' => $s3Config['endpoint'] ?? 'Default',
+                ],
+                'env_vars' => [
+                    'AWS_ACCESS_KEY_ID' => env('AWS_ACCESS_KEY_ID') ? 'SET' : 'NOT SET',
+                    'AWS_SECRET_ACCESS_KEY' => env('AWS_SECRET_ACCESS_KEY') ? 'SET' : 'NOT SET',
+                    'AWS_DEFAULT_REGION' => env('AWS_DEFAULT_REGION') ?: 'NOT SET',
+                    'AWS_BUCKET' => env('AWS_BUCKET') ?: 'NOT SET',
+                ],
+                'recommendations' => [
+                    'Check if AWS credentials are properly loaded',
+                    'Verify region configuration matches S3 bucket region',
+                    'Ensure secret key doesn\'t contain special characters that need escaping',
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ], 500);
+        }
+    }
 }
