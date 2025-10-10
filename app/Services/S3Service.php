@@ -147,39 +147,35 @@ class S3Service
     }
 
     /**
-     * Generate a temporary URL for S3 operations using PROVEN direct AWS SDK approach
-     * Uses the exact same method that works in our diagnosis test (HTTP 200 success)
+     * Generate a temporary URL for S3 operations using EXACT Stack Overflow specification
+     * Fixed to match the precise requirements for signature matching
      */
     public static function getTemporaryUrl(string $path, $expiration, string $method = 'GET', $contentType = null): string
     {
         try {
             if ($method === 'PUT') {
-                // Use PROVEN direct AWS SDK approach (confirmed working in diagnosis test)
-                $s3Client = new S3Client([
-                    'version' => 'latest',
-                    'region' => 'eu-north-1',
-                    'credentials' => [
-                        'key' => config('filesystems.disks.s3.key'),
-                        'secret' => config('filesystems.disks.s3.secret'),
-                    ],
-                ]);
-
+                // Use EXACT Stack Overflow specification for bulletproof presigned URLs
+                $disk = Storage::disk('s3');
+                $adapter = $disk->getDriver()->getAdapter();
+                $client = $adapter->getClient();
                 $bucket = config('filesystems.disks.s3.bucket');
 
-                // Build a PutObject command (exact same as working diagnosis test)
-                $command = $s3Client->getCommand('PutObject', [
+                // Build PutObject command with EXACT specification
+                $cmd = $client->getCommand('PutObject', [
                     'Bucket' => $bucket,
                     'Key' => $path,
-                    'ContentType' => $contentType,
+                    'ACL' => 'public-read', // CRITICAL: Must match curl header
+                    'ContentType' => $contentType ?: 'application/octet-stream', // CRITICAL: Must match curl header
                 ]);
 
                 // Create the presigned request
-                $request = $s3Client->createPresignedRequest($command, $expiration);
+                $request = $client->createPresignedRequest($cmd, $expiration);
                 $presignedUrl = (string) $request->getUri();
 
-                Log::info('Generated presigned URL using PROVEN direct AWS SDK approach', [
+                Log::info('Generated presigned URL using EXACT Stack Overflow specification', [
                     'path' => $path,
                     'content_type' => $contentType,
+                    'acl' => 'public-read',
                     'url_host' => parse_url($presignedUrl, PHP_URL_HOST),
                     'method' => $method,
                 ]);
