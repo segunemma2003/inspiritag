@@ -35,8 +35,7 @@ Route::get('/health', function () {
 });
 
 // Test route for debugging
-Route::post('/test-upload', function (Request $request) {
-    \Log::info('Test upload route called', ['request' => $request->all()]);
+Route::post('/test-upload', function () {
     return response()->json(['success' => true, 'message' => 'Test route working']);
 });
 
