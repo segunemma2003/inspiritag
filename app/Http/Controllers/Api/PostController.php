@@ -484,9 +484,11 @@ class PostController extends Controller
      */
     public function getUploadUrl(Request $request)
     {
+        Log::info('getUploadUrl method called', ['request' => $request->all()]);
+        
         $validator = Validator::make($request->all(), [
             'filename' => 'required|string|max:255',
-            'content_type' => 'required|string|in:image/jpeg,image/png,image/gif,video/mp4,video/mov,video/avi,video/quicktime,video/mpeg,video/webm,video/ogg,video/x-ms-wmv,video/x-ms-asf',
+            'content_type' => 'required|string',
             'file_size' => 'required|integer|min:1|max:2147483648', // 2GB max
         ]);
 
@@ -510,7 +512,8 @@ class PostController extends Controller
             $s3Path = 'posts/' . $uniqueFilename;
 
             // Use the new bulletproof PresignedUrlService
-            $result = PresignedUrlService::generateUploadUrl(
+            $presignedService = new PresignedUrlService(new S3Service());
+            $result = $presignedService->generateUploadUrl(
                 $s3Path,
                 $contentType,
                 15 // 15 minutes expiration
@@ -530,7 +533,7 @@ class PostController extends Controller
                     'upload_method' => 'direct',
                     'upload_url' => $result['presigned_url'],
                     'file_path' => $s3Path,
-                    'file_url' => S3Service::getUrl($s3Path),
+                    'file_url' => 'https://' . env('AWS_BUCKET') . '.s3.' . env('AWS_DEFAULT_REGION') . '.amazonaws.com/' . $s3Path,
                     'expires_in' => $result['expires_in'],
                     'file_size' => $fileSize,
                     'content_type' => $contentType,
