@@ -51,6 +51,9 @@ Route::post('/public-upload-url', [PostController::class, 'getUploadUrl']);
 // Simple upload URL route for testing
 Route::post('/simple-upload-url', [PostController::class, 'getSimpleUploadUrl']);
 
+// Working upload URL route (temporary fix)
+Route::post('/working-upload-url', [PostController::class, 'getWorkingUploadUrl']);
+
 // Public routes
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
