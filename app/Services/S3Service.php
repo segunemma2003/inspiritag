@@ -129,7 +129,7 @@ class S3Service
     /**
      * Generate a temporary URL for S3 operations (alias for getPresignedUrl)
      */
-    public static function getTemporaryUrl(string $path, $expiration, string $method = 'GET', array $options = []): string
+    public static function getTemporaryUrl(string $path, $expiration, string $method = 'GET', $contentType): string
     {
         try {
             if ($method === 'PUT') {
@@ -146,6 +146,8 @@ class S3Service
                 $command = $s3Client->getCommand('PutObject', [
                     'Bucket' => config('filesystems.disks.s3.bucket'),
                     'Key' => $path,
+                    // *** ADD THIS LINE ***
+                    'ContentType' => $contentType,
                 ]);
 
                 $request = $s3Client->createPresignedRequest($command, $expiration);

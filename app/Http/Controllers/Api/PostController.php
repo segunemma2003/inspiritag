@@ -531,8 +531,8 @@ class PostController extends Controller
         $presignedUrl = S3Service::getTemporaryUrl(
             $s3Path,
             now()->addHour(),
-            'PUT'
-
+            'PUT',
+            $contentType
         );
 
         return response()->json([
