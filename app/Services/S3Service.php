@@ -153,38 +153,19 @@ class S3Service
     {
         try {
             if ($method === 'PUT') {
-                $s3Client = self::getS3Client();
+                // Use Laravel's built-in method for PUT requests
+                $presignedUrl = Storage::disk('s3')->temporaryUrl($path, $expiration, [
+                    'ResponseContentType' => $contentType,
+                ]);
 
-                $commandParams = [
-                    'Bucket' => config('filesystems.disks.s3.bucket'),
-                    'Key' => $path,
-                ];
-
-                // CRITICAL: Add ContentType to the command params
-                if ($contentType) {
-                    $commandParams['ContentType'] = $contentType;
-                }
-
-                $command = $s3Client->getCommand('PutObject', $commandParams);
-
-                $request = $s3Client->createPresignedRequest($command, $expiration);
-                
-                // Ensure Content-Type is in the headers
-                if ($contentType) {
-                    $request = $request->withHeader('Content-Type', $contentType);
-                }
-
-                // Get the direct S3 URL (not CloudFront)
-                $directUrl = (string) $request->getUri();
-
-                Log::info('Generated presigned URL', [
+                Log::info('Generated presigned URL using Laravel method', [
                     'path' => $path,
                     'content_type' => $contentType,
-                    'url_host' => parse_url($directUrl, PHP_URL_HOST),
+                    'url_host' => parse_url($presignedUrl, PHP_URL_HOST),
                     'method' => $method,
                 ]);
 
-                return $directUrl;
+                return $presignedUrl;
             }
 
             // For GET requests, use Laravel's method

@@ -183,7 +183,7 @@ class PresignedUploadTest {
 
     private function uploadToS3($presignedUrl, $filePath, $contentType) {
         $ch = curl_init();
-        
+
         curl_setopt_array($ch, [
             CURLOPT_URL => $presignedUrl,
             CURLOPT_PUT => true,
