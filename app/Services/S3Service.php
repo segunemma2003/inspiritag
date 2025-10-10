@@ -5,7 +5,7 @@ namespace App\Services;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-
+use Aws\S3\S3Client;
 class S3Service
 {
     /**
@@ -133,10 +133,27 @@ class S3Service
     {
         try {
             if ($method === 'PUT') {
-                // For PUT requests, we need to generate a presigned URL with specific options
-                return Storage::disk('s3')->temporaryUrl($path, $expiration);
+                // Use AWS SDK directly for PUT presigned URLs
+                $s3Client = new S3Client([
+                    'version' => 'latest',
+                    'region' => config('filesystems.disks.s3.region'),
+                    'credentials' => [
+                        'key' => config('filesystems.disks.s3.key'),
+                        'secret' => config('filesystems.disks.s3.secret'),
+                    ],
+                ]);
+
+                $command = $s3Client->getCommand('PutObject', [
+                    'Bucket' => config('filesystems.disks.s3.bucket'),
+                    'Key' => $path,
+                ]);
+
+                $request = $s3Client->createPresignedRequest($command, $expiration);
+
+                return (string) $request->getUri();
             }
 
+            // For GET requests, use Laravel's method
             return Storage::disk('s3')->temporaryUrl($path, $expiration);
         } catch (\Exception $e) {
             \Log::error("Failed to generate temporary URL for: {$path}. Error: " . $e->getMessage());
