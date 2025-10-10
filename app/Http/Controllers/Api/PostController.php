@@ -13,6 +13,7 @@ use App\Services\FirebaseNotificationService;
 use App\Services\S3Service;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
@@ -390,7 +391,7 @@ class PostController extends Controller
                 'message' => $posts->count() > 0 ? 'Saved posts retrieved successfully' : 'No saved posts found'
             ]);
         } catch (\Exception $e) {
-            \Log::error('Error fetching saved posts: ' . $e->getMessage());
+            Log::error('Error fetching saved posts: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch saved posts',
@@ -433,7 +434,7 @@ class PostController extends Controller
                 'message' => $posts->count() > 0 ? 'Liked posts retrieved successfully' : 'No liked posts found'
             ]);
         } catch (\Exception $e) {
-            \Log::error('Error fetching liked posts: ' . $e->getMessage());
+            Log::error('Error fetching liked posts: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch liked posts',
@@ -529,21 +530,11 @@ class PostController extends Controller
         // }
 
         // For smaller files (< 50MB), use direct S3 upload
-        // $presignedUrl = S3Service::getTemporaryUrl(
-        //     $s3Path,
-        //     now()->addHour(),
-        //     'PUT',
-        //     $contentType
-        // );
-try{
-        $presignedUrl =  Storage::disk('s3')->temporaryUrl(
-
+        $presignedUrl = S3Service::getTemporaryUrl(
             $s3Path,
-
-            now()->addMinutes(10),
-
-
-
+            now()->addHour(),
+            'PUT',
+            $contentType
         );
 
         return response()->json([
@@ -559,7 +550,7 @@ try{
             ]
         ]);
     } catch (\Exception $e) {
-        \Log::error('Failed to generate presigned URL: ' . $e->getMessage());
+        Log::error('Failed to generate presigned URL: ' . $e->getMessage());
 
         return response()->json([
             'success' => false,
