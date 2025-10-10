@@ -528,10 +528,12 @@ class PostController extends Controller
         // }
 
         // For smaller files (< 50MB), use direct S3 upload
-        $presignedUrl = S3Service::getTemporaryUrl($s3Path, now()->addHour(), 'PUT', [
-            'Content-Type' => $contentType,
-            'Content-Length' => $fileSize,
-        ]);
+        $presignedUrl = S3Service::getTemporaryUrl(
+            $s3Path,
+            now()->addHour(),
+            'PUT'
+            // DON'T pass options array with headers
+        );
 
         return response()->json([
             'success' => true,

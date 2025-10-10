@@ -134,7 +134,7 @@ class S3Service
         try {
             if ($method === 'PUT') {
                 // For PUT requests, we need to generate a presigned URL with specific options
-                return Storage::disk('s3')->temporaryUrl($path, $expiration, $options);
+                return Storage::disk('s3')->temporaryUrl($path, $expiration);
             }
 
             return Storage::disk('s3')->temporaryUrl($path, $expiration);
