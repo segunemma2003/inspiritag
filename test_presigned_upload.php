@@ -190,7 +190,7 @@ class PresignedUploadTest {
             CURLOPT_INFILE => fopen($filePath, 'r'),
             CURLOPT_INFILESIZE => filesize($filePath),
             CURLOPT_HTTPHEADER => [
-                'Content-Type: ' . $contentType,
+                // Don't send any headers - let the presigned URL handle everything
             ],
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_HEADER => true,
