@@ -32,6 +32,13 @@ Route::get('/categories', [CategoryController::class, 'index']); // Public categ
 // routes/api.php
 Route::get('/debug/s3-config', [DebugController::class, 'checkS3Config']);
 Route::get('/debug/test-presigned', [DebugController::class, 'testPresignedUrl']);
+Route::get('/test-debug', function() {
+    return response()->json([
+        'status' => 'working',
+        'php_version' => phpversion(),
+        'laravel_version' => app()->version(),
+    ]);
+});
 // Protected routes
 Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
     // Auth routes
