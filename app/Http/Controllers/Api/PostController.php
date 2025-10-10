@@ -481,53 +481,33 @@ class PostController extends Controller
      * - >= 500MB: Chunked upload
      */
     public function getUploadUrl(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'filename' => 'required|string|max:255',
-            'content_type' => 'required|string|in:image/jpeg,image/png,image/gif,video/mp4,video/mov,video/avi,video/quicktime,video/mpeg,video/webm,video/ogg, video/x-ms-wmv, video/x-ms-asf',
-            'file_size' => 'required|integer|min:1|max:2147483648', // 2GB max
-        ]);
+{
+    $validator = Validator::make($request->all(), [
+        'filename' => 'required|string|max:255',
+        'content_type' => 'required|string|in:image/jpeg,image/png,image/gif,video/mp4,video/mov,video/avi,video/quicktime,video/mpeg,video/webm,video/ogg,video/x-ms-wmv,video/x-ms-asf',
+        'file_size' => 'required|integer|min:1|max:2147483648', // 2GB max
+    ]);
 
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation errors',
-                'errors' => $validator->errors()
-            ], 422);
-        }
+    if ($validator->fails()) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Validation errors',
+            'errors' => $validator->errors()
+        ], 422);
+    }
 
-        $user = $request->user();
-        $filename = $request->filename;
-        $contentType = $request->content_type;
-        $fileSize = $request->file_size;
+    $user = $request->user();
+    $filename = $request->filename;
+    $contentType = $request->content_type;
+    $fileSize = $request->file_size;
 
-        // Check if file is large enough to require presigned URL (50MB threshold)
-        $largeFileThreshold = 50 * 1024 * 1024; // 50MB in bytes
-        $isLargeFile = $fileSize >= $largeFileThreshold;
+    // Generate unique filename
+    $extension = pathinfo($filename, PATHINFO_EXTENSION);
+    $uniqueFilename = time() . '_' . $user->id . '_' . Str::random(10) . '.' . $extension;
+    $s3Path = 'posts/' . $uniqueFilename;
 
-        // Generate unique filename
-        $extension = pathinfo($filename, PATHINFO_EXTENSION);
-        $uniqueFilename = time() . '_' . $user->id . '_' . Str::random(10) . '.' . $extension;
-        $s3Path = 'posts/' . $uniqueFilename;
-
-        // if ($isLargeFile) {
-        //     // For large files (>= 50MB), recommend chunked upload
-        //     return response()->json([
-        //         'success' => true,
-        //         'message' => 'Large file detected. Use chunked upload for better performance.',
-        //         'data' => [
-        //             'upload_method' => 'chunked',
-        //             'file_path' => $s3Path,
-        //             'file_url' => S3Service::getUrl($s3Path),
-        //             'file_size' => $fileSize,
-        //             'threshold_exceeded' => true,
-        //             'recommended_chunk_size' => min(50 * 1024 * 1024, $fileSize / 20), // 50MB chunks or file_size/20
-        //             'chunked_upload_endpoint' => '/api/posts/chunked-upload-url'
-        //         ]
-        //     ]);
-        // }
-
-        // For smaller files (< 50MB), use direct S3 upload
+    try {
+        // Generate presigned URL with proper content type
         $presignedUrl = S3Service::getTemporaryUrl(
             $s3Path,
             now()->addHour(),
@@ -544,10 +524,19 @@ class PostController extends Controller
                 'file_url' => S3Service::getUrl($s3Path),
                 'expires_in' => 3600, // 1 hour
                 'file_size' => $fileSize,
-                'threshold_exceeded' => false
+                'content_type' => $contentType, // Return content type to frontend
             ]
         ]);
+    } catch (\Exception $e) {
+        \Log::error('Failed to generate presigned URL: ' . $e->getMessage());
+        
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to generate upload URL',
+            'error' => $e->getMessage()
+        ], 500);
     }
+}
 
     /**
      * Create post after successful S3 upload
