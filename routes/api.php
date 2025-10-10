@@ -48,6 +48,9 @@ Route::post('/test-new-controller', [TestController::class, 'test']);
 // Public upload URL route for testing (temporary)
 Route::post('/public-upload-url', [PostController::class, 'getUploadUrl']);
 
+// Simple upload URL route for testing
+Route::post('/simple-upload-url', [PostController::class, 'getSimpleUploadUrl']);
+
 // Public routes
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);

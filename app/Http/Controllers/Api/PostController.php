@@ -485,6 +485,45 @@ class PostController extends Controller
     }
 
     /**
+     * Simple upload URL method for testing
+     */
+    public function getSimpleUploadUrl(Request $request)
+    {
+        Log::info('getSimpleUploadUrl method called', ['request' => $request->all()]);
+        
+        try {
+            // Generate a simple presigned URL
+            $presignedService = new PresignedUrlService(new S3Service());
+            $result = $presignedService->generateUploadUrl(
+                'posts/test_' . time() . '.jpg',
+                'image/jpeg',
+                15
+            );
+            
+            if ($result['success']) {
+                return response()->json([
+                    'success' => true,
+                    'data' => [
+                        'upload_url' => $result['presigned_url'],
+                        'expires_in' => $result['expires_in']
+                    ]
+                ]);
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'error' => $result['error']
+                ], 500);
+            }
+        } catch (\Exception $e) {
+            Log::error('Error in getSimpleUploadUrl: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * Get presigned URL for direct S3 upload (for large files)
      * Automatically chooses upload method based on file size:
      * - < 500MB: Direct S3 upload
@@ -518,7 +557,7 @@ class PostController extends Controller
                     'token' => $request->bearerToken(),
                     'user_agent' => $request->userAgent()
                 ]);
-                
+
                 // For testing purposes, use a default user ID
                 $user = (object) ['id' => 1];
                 Log::info('Using default user for testing', ['user_id' => $user->id]);
