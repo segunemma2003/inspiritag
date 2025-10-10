@@ -484,7 +484,7 @@ class PostController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'filename' => 'required|string|max:255',
-            'content_type' => 'required|string|in:image/jpeg,image/png,image/gif,video/mp4,video/mov,video/avi',
+            'content_type' => 'required|string|in:image/jpeg,image/png,image/gif,video/mp4,video/mov,video/avi,video/quicktime,video/mpeg,video/webm,video/ogg, video/x-ms-wmv, video/x-ms-asf',
             'file_size' => 'required|integer|min:1|max:2147483648', // 2GB max
         ]);
 
