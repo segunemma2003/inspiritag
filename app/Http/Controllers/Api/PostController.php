@@ -510,6 +510,22 @@ class PostController extends Controller
 
         try {
             $user = $request->user();
+            
+            // Debug authentication issue
+            if (!$user) {
+                Log::error('Authentication failed in getUploadUrl', [
+                    'auth_header' => $request->header('Authorization'),
+                    'token' => $request->bearerToken(),
+                    'user_agent' => $request->userAgent()
+                ]);
+                
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Authentication required',
+                    'error' => 'User not authenticated'
+                ], 401);
+            }
+            
             $filename = $request->filename;
             $contentType = $request->content_type;
             $fileSize = $request->file_size;
