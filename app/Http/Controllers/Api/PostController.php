@@ -491,7 +491,7 @@ class PostController extends Controller
     public function getSimpleUploadUrl(Request $request)
     {
         Log::info('getSimpleUploadUrl method called', ['request' => $request->all()]);
-        
+
         try {
             // Generate a simple presigned URL
             $presignedService = new PresignedUrlService(new S3Service());
@@ -500,7 +500,7 @@ class PostController extends Controller
                 'image/jpeg',
                 15
             );
-            
+
             if ($result['success']) {
                 return response()->json([
                     'success' => true,
@@ -530,7 +530,7 @@ class PostController extends Controller
     public function getWorkingUploadUrl(Request $request)
     {
         Log::info('getWorkingUploadUrl method called', ['request' => $request->all()]);
-        
+
         $validator = Validator::make($request->all(), [
             'filename' => 'required|string|max:255',
             'content_type' => 'required|string',
@@ -577,30 +577,20 @@ class PostController extends Controller
             $uniqueFilename = time() . '_' . $user->id . '_' . Str::random(10) . '.' . $extension;
             $s3Path = 'posts/' . $uniqueFilename;
 
-            // Generate presigned URL
-            $presignedService = new PresignedUrlService(new S3Service());
-            $result = $presignedService->generateUploadUrl(
-                $s3Path,
-                $contentType,
-                15 // 15 minutes expiration
-            );
-
-            if (!$result['success']) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Failed to generate presigned URL',
-                    'error' => $result['error']
-                ], 500);
-            }
+            // Generate presigned URL directly from S3Service
+            $s3Service = new S3Service();
+            $presignedUrl = $s3Service->getTemporaryUrl($s3Path, now()->addMinutes(15), 'PUT', [
+                'Content-Type' => $contentType,
+            ]);
 
             return response()->json([
                 'success' => true,
                 'data' => [
                     'upload_method' => 'direct',
-                    'upload_url' => $result['presigned_url'],
+                    'upload_url' => $presignedUrl,
                     'file_path' => $s3Path,
                     'file_url' => 'https://' . env('AWS_BUCKET') . '.s3.' . env('AWS_DEFAULT_REGION') . '.amazonaws.com/' . $s3Path,
-                    'expires_in' => $result['expires_in'],
+                    'expires_in' => 900, // 15 minutes in seconds
                     'file_size' => $fileSize,
                     'content_type' => $contentType,
                 ]
