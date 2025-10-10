@@ -168,6 +168,11 @@ class S3Service
                 $command = $s3Client->getCommand('PutObject', $commandParams);
 
                 $request = $s3Client->createPresignedRequest($command, $expiration);
+                
+                // Ensure Content-Type is in the headers
+                if ($contentType) {
+                    $request = $request->withHeader('Content-Type', $contentType);
+                }
 
                 // Get the direct S3 URL (not CloudFront)
                 $directUrl = (string) $request->getUri();
