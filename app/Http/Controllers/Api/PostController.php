@@ -238,7 +238,7 @@ class PostController extends Controller
             if ($post->user_id !== $user->id) {
                 $postOwner = User::find($post->user_id);
                 $firebaseService = new FirebaseNotificationService();
-                $firebaseService->sendLikeNotification($user, $postOwner, $post);
+                $firebaseService->sendPostLikedNotification($user, $postOwner, $post);
             }
 
             return response()->json([
@@ -497,6 +497,7 @@ class PostController extends Controller
         ], 422);
     }
 
+    try{
     $user = $request->user();
     $filename = $request->filename;
     $contentType = $request->content_type;
@@ -511,23 +512,6 @@ class PostController extends Controller
         $extension = pathinfo($filename, PATHINFO_EXTENSION);
         $uniqueFilename = time() . '_' . $user->id . '_' . Str::random(10) . '.' . $extension;
         $s3Path = 'posts/' . $uniqueFilename;
-
-        // if ($isLargeFile) {
-        //     // For large files (>= 50MB), recommend chunked upload
-        //     return response()->json([
-        //         'success' => true,
-        //         'message' => 'Large file detected. Use chunked upload for better performance.',
-        //         'data' => [
-        //             'upload_method' => 'chunked',
-        //             'file_path' => $s3Path,
-        //             'file_url' => S3Service::getUrl($s3Path),
-        //             'file_size' => $fileSize,
-        //             'threshold_exceeded' => true,
-        //             'recommended_chunk_size' => min(50 * 1024 * 1024, $fileSize / 20), // 50MB chunks or file_size/20
-        //             'chunked_upload_endpoint' => '/api/posts/chunked-upload-url'
-        //         ]
-        //     ]);
-        // }
 
         // For smaller files (< 50MB), use direct S3 upload
         $presignedUrl = S3Service::getTemporaryUrl(
