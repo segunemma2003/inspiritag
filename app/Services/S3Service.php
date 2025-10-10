@@ -147,37 +147,31 @@ class S3Service
     }
 
     /**
-     * Generate a temporary URL for S3 operations using PROVEN direct AWS SDK approach
-     * Uses the exact same method that achieved HTTP 200 success in our test
+     * Generate a temporary URL for S3 operations using Laravel's working Storage facade
+     * Uses the same S3 client that works for direct uploads
      */
     public static function getTemporaryUrl(string $path, $expiration, string $method = 'GET', $contentType = null): string
     {
         try {
             if ($method === 'PUT') {
-                // Use PROVEN direct AWS SDK approach (confirmed HTTP 200 success)
-                $s3Client = new S3Client([
-                    'version' => 'latest',
-                    'region' => 'eu-north-1',
-                    'credentials' => [
-                        'key' => env('AWS_ACCESS_KEY_ID'),
-                        'secret' => env('AWS_SECRET_ACCESS_KEY'),
-                    ],
-                ]);
+                // Use Laravel's working Storage facade to get the S3 client
+                $disk = Storage::disk('s3');
+                $adapter = $disk->getDriver()->getAdapter();
+                $s3Client = $adapter->getClient(); // This uses Laravel's working config
+                $bucket = config('filesystems.disks.s3.bucket'); // This works for direct uploads
 
-                $bucket = env('AWS_BUCKET', 'inspirtag');
-
-                // Build PutObject command (exact same as working test)
+                // Build PutObject command using Laravel's working S3 client
                 $command = $s3Client->getCommand('PutObject', [
                     'Bucket' => $bucket,
                     'Key' => $path,
                     'ContentType' => $contentType ?: 'application/octet-stream',
                 ]);
 
-                // Create the presigned request
+                // Create the presigned request using Laravel's working client
                 $request = $s3Client->createPresignedRequest($command, $expiration);
                 $presignedUrl = (string) $request->getUri();
 
-                Log::info('Generated presigned URL using PROVEN direct AWS SDK approach', [
+                Log::info('Generated presigned URL using Laravel\'s working Storage facade', [
                     'path' => $path,
                     'content_type' => $contentType,
                     'url_host' => parse_url($presignedUrl, PHP_URL_HOST),

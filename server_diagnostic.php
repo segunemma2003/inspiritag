@@ -37,7 +37,7 @@ if (file_exists($envFile)) {
     echo "✅ .env file exists\n";
     echo "Readable: " . (is_readable($envFile) ? 'YES' : 'NO') . "\n";
     echo "Size: " . filesize($envFile) . " bytes\n";
-    
+
     // Check for AWS variables in .env file
     $envContent = file_get_contents($envFile);
     echo "Contains AWS_ACCESS_KEY_ID: " . (strpos($envContent, 'AWS_ACCESS_KEY_ID') !== false ? 'YES' : 'NO') . "\n";
