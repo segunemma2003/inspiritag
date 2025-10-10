@@ -1,0 +1,33 @@
+{
+    "Version": "2008-10-17",
+    "Id": "PolicyForCloudFrontAndDirectAccess",
+    "Statement": [
+        {
+            "Sid": "AllowCloudFrontServicePrincipal",
+            "Effect": "Allow",
+            "Principal": {
+                "Service": "cloudfront.amazonaws.com"
+            },
+            "Action": "s3:GetObject",
+            "Resource": "arn:aws:s3:::inspirtag/*",
+            "Condition": {
+                "ArnLike": {
+                    "AWS:SourceArn": "arn:aws:cloudfront::838770070052:distribution/E3EFVIU10CZ7V9"
+                }
+            }
+        },
+        {
+            "Sid": "AllowDirectS3Access",
+            "Effect": "Allow",
+            "Principal": {
+                "AWS": "arn:aws:iam::838770070052:user/YOUR_IAM_USER_NAME"
+            },
+            "Action": [
+                "s3:GetObject",
+                "s3:PutObject",
+                "s3:DeleteObject"
+            ],
+            "Resource": "arn:aws:s3:::inspirtag/*"
+        }
+    ]
+}

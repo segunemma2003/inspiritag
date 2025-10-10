@@ -160,11 +160,10 @@ class S3Service
                 $client = $adapter->getClient();
                 $bucket = config('filesystems.disks.s3.bucket');
 
-                // Build PutObject command with EXACT specification
+                // Build PutObject command with EXACT specification (ACL disabled on bucket)
                 $cmd = $client->getCommand('PutObject', [
                     'Bucket' => $bucket,
                     'Key' => $path,
-                    'ACL' => 'public-read', // CRITICAL: Must match curl header
                     'ContentType' => $contentType ?: 'application/octet-stream', // CRITICAL: Must match curl header
                 ]);
 
@@ -175,7 +174,6 @@ class S3Service
                 Log::info('Generated presigned URL using EXACT Stack Overflow specification', [
                     'path' => $path,
                     'content_type' => $contentType,
-                    'acl' => 'public-read',
                     'url_host' => parse_url($presignedUrl, PHP_URL_HOST),
                     'method' => $method,
                 ]);
