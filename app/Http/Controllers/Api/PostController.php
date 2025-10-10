@@ -635,12 +635,6 @@ class PostController extends Controller
 
             // Handle authentication issue
             if (!$user) {
-                Log::error('Authentication failed in getUploadUrl', [
-                    'auth_header' => $request->header('Authorization'),
-                    'token' => $request->bearerToken(),
-                    'user_agent' => $request->userAgent()
-                ]);
-
                 return response()->json([
                     'success' => false,
                     'message' => 'Authentication required',
@@ -654,7 +648,7 @@ class PostController extends Controller
 
             // Generate unique filename
             $extension = pathinfo($filename, PATHINFO_EXTENSION);
-            $uniqueFilename = time() . '_' . $user->id . '_' . Str::random(10) . '.' . $extension;
+            $uniqueFilename = time() . '_' . Auth::id() . '_' . Str::random(10) . '.' . $extension;
             $s3Path = 'posts/' . $uniqueFilename;
 
             // Generate presigned URL directly from S3Service
@@ -683,7 +677,7 @@ class PostController extends Controller
                 'success' => false,
                 'message' => 'Failed to generate upload URL',
                 'error' => $e->getMessage()
-            ], 500);
+            ], 522);
         }
     }
 
