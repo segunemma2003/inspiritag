@@ -153,28 +153,10 @@ class S3Service
     {
         try {
             if ($method === 'PUT') {
-                // Use custom AWS SDK approach to properly handle Content-Type in signed headers
-                $s3Client = self::getS3Client();
+                // Use Laravel's built-in method with proper parameters
+                $presignedUrl = Storage::disk('s3')->temporaryUrl($path, $expiration);
 
-                $commandParams = [
-                    'Bucket' => config('filesystems.disks.s3.bucket'),
-                    'Key' => $path,
-                ];
-
-                // Add ContentType to the command params
-                if ($contentType) {
-                    $commandParams['ContentType'] = $contentType;
-                }
-
-                $command = $s3Client->getCommand('PutObject', $commandParams);
-
-                // Create presigned request with proper headers
-                $request = $s3Client->createPresignedRequest($command, $expiration);
-
-                // Get the presigned URL
-                $presignedUrl = (string) $request->getUri();
-
-                Log::info('Generated presigned URL with Content-Type in signed headers', [
+                Log::info('Generated presigned URL using Laravel built-in method', [
                     'path' => $path,
                     'content_type' => $contentType,
                     'url_host' => parse_url($presignedUrl, PHP_URL_HOST),
