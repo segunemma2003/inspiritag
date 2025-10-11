@@ -57,8 +57,8 @@ class PostController extends Controller
             $followingIds = $user->following()->pluck('users.id');
             $followingIds[] = $user->id; // Include current user's posts
 
-            $query->whereIn('user_id', $followingIds)
-                  ->where('is_public', true);
+            // $query->whereIn('user_id', $followingIds)
+            //       ->where('is_public', true);
 
             // Filter by categories
             if (!empty($categories)) {
