@@ -86,7 +86,7 @@ Route::post('/test-s3-service', function() {
     try {
         // Ensure autoloader is loaded
         require_once base_path('vendor/autoload.php');
-        
+
         $s3Service = new \App\Services\S3Service();
         return response()->json(['success' => true, 'message' => 'S3Service instantiated successfully']);
     } catch (\Exception $e) {
@@ -97,8 +97,14 @@ Route::post('/test-s3-service', function() {
 // Test AWS SDK directly without Laravel facades
 Route::post('/test-aws-direct', function() {
     try {
-        // Ensure autoloader is loaded
-        require_once base_path('vendor/autoload.php');
+        // Test if AWS SDK classes are available
+        if (!class_exists('\Aws\S3\S3Client')) {
+            return response()->json([
+                'success' => false,
+                'error' => 'AWS SDK not available',
+                'autoloader' => file_exists(base_path('vendor/autoload.php')) ? 'exists' : 'missing'
+            ], 500);
+        }
         
         // Test AWS SDK directly
         $s3Client = new \Aws\S3\S3Client([
