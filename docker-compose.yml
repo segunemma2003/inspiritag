@@ -11,6 +11,8 @@ services:
       - ./docker/php.ini:/usr/local/etc/php/conf.d/custom.ini
     ports:
       - "9000:9000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"  # This allows Docker to access host MySQL
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/ping"]
       interval: 30s
@@ -18,34 +20,14 @@ services:
       retries: 3
       start_period: 40s
     depends_on:
-      mysql:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+      - redis
     networks:
       - inspirtag-network
 
-  mysql:
-    image: mysql:8.0
-    container_name: inspirtag-mysql
-    restart: unless-stopped
-    environment:
-      MYSQL_DATABASE: ${DB_DATABASE}
-      MYSQL_USER: ${DB_USERNAME}
-      MYSQL_PASSWORD: ${DB_PASSWORD}
-      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
-    volumes:
-      - mysql_data:/var/lib/mysql
-    ports:
-      - "3306:3306"
-    networks:
-      - inspirtag-network
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
+  # REMOVE the mysql service completely - comment it out or delete it
+  # mysql:
+  #   image: mysql:8.0
+  #   ...
 
   redis:
     image: redis:7-alpine
@@ -75,8 +57,9 @@ services:
       - .env
     volumes:
       - ./:/var/www/html
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
-      - mysql
       - redis
     networks:
       - inspirtag-network
@@ -91,8 +74,9 @@ services:
       - .env
     volumes:
       - ./:/var/www/html
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
-      - mysql
       - redis
     networks:
       - inspirtag-network
@@ -119,7 +103,7 @@ services:
       start_period: 40s
 
 volumes:
-  mysql_data:
+  # Remove mysql_data volume since we're not using Docker MySQL
   redis_data:
 
 networks:

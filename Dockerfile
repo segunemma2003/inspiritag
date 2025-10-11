@@ -18,7 +18,7 @@ RUN apt-get update && apt-get install -y \
     supervisor \
     redis-server \
     cron \
-    mysql-client \
+    default-mysql-client \
     wget \
     && rm -rf /var/lib/apt/lists/*
 
