@@ -106,24 +106,24 @@ class S3Service
     // }
 
 
-    public static function getFileUrl(string $path): string
-{
-    // Use CDN if configured
-    $cdnUrl = config('filesystems.disks.s3.cdn_url');
+public static function getFileUrl(string $path): string
+    {
+        // Use CDN if configured
+        $cdnUrl = config('filesystems.disks.s3.cdn_url');
 
-    if ($cdnUrl) {
-        // Ensure CDN URL has protocol
-        if (!str_starts_with($cdnUrl, 'http://') && !str_starts_with($cdnUrl, 'https://')) {
-            $cdnUrl = 'https://' . $cdnUrl;
+        if ($cdnUrl) {
+            // Ensure CDN URL has protocol
+            if (!str_starts_with($cdnUrl, 'http://') && !str_starts_with($cdnUrl, 'https://')) {
+                $cdnUrl = 'https://' . $cdnUrl;
+            }
+            return rtrim($cdnUrl, '/') . '/' . ltrim($path, '/');
         }
-        return rtrim($cdnUrl, '/') . '/' . ltrim($path, '/');
-    }
 
-    // Fallback to direct S3
-    $bucket = config('filesystems.disks.s3.bucket');
-    $region = config('filesystems.disks.s3.region');
-    return "https://{$bucket}.s3.{$region}.amazonaws.com/{$path}";
-}
+        // Fallback to direct S3
+        $bucket = config('filesystems.disks.s3.bucket');
+        $region = config('filesystems.disks.s3.region');
+        return "https://{$bucket}.s3.{$region}.amazonaws.com/{$path}";
+    }
     /**
      * Get file URL from S3 (alias for getFileUrl)
      */
