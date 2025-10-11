@@ -26,27 +26,13 @@ jobs:
             # Navigate to project directory
             cd /var/www/inspirtag
 
-            # Fix git configuration for pulls
-            git config pull.rebase false
-
-            # Stash any local changes
-            echo "📦 Stashing local changes..."
-            git stash
-
-            # Pull latest changes
+            # FORCE reset to GitHub version (prevents merge conflicts)
             echo "🔄 Pulling latest changes..."
-            git pull origin main --no-edit || {
-              echo "⚠️ Git pull failed, forcing reset..."
-              git fetch origin
-              git reset --hard origin/main
-            }
-
-            # Restore stashed changes if any
-            git stash pop 2>/dev/null || true
+            git fetch origin
+            git reset --hard origin/main
+            git clean -fd
 
             # Make scripts executable if they exist
-            chmod +x fix_server_docker.sh 2>/dev/null || true
-            chmod +x ensure_containers_running.sh 2>/dev/null || true
             chmod +x docker/entrypoint.sh 2>/dev/null || true
 
             # Check if Docker is running
@@ -62,13 +48,16 @@ jobs:
             grep -q "AWS_ENDPOINT=" .env || echo "AWS_ENDPOINT=" >> .env
             grep -q "AWS_USE_PATH_STYLE_ENDPOINT=" .env || echo "AWS_USE_PATH_STYLE_ENDPOINT=false" >> .env
 
+            # Update DB_HOST to use host MySQL (not Docker MySQL)
+            sed -i 's/^DB_HOST=.*/DB_HOST=host.docker.internal/' .env
+
             # Backup .env file
             echo "💾 Backing up .env file..."
             cp .env .env.backup
 
             # Complete shutdown - remove everything
             echo "🛑 Stopping all containers..."
-            docker-compose down -v --remove-orphans --timeout 10 || true
+            docker-compose down --remove-orphans --timeout 10 || true
 
             # Force remove any stuck containers
             echo "🧹 Cleaning up stuck containers..."
@@ -82,13 +71,9 @@ jobs:
             echo "📋 Restoring .env file..."
             cp .env.backup .env
 
-            # Rebuild only if Docker files changed
-            if git diff HEAD~1 HEAD --name-only 2>/dev/null | grep -E "(Dockerfile|docker/)" > /dev/null; then
-              echo "🔨 Rebuilding containers (Docker files changed)..."
-              docker-compose build --no-cache
-            else
-              echo "⏭️ Skipping rebuild (no Docker changes)"
-            fi
+            # Always rebuild to ensure latest code
+            echo "🔨 Building containers..."
+            docker-compose build --no-cache
 
             # Start all containers fresh
             echo "🚀 Starting containers..."
@@ -98,21 +83,13 @@ jobs:
             echo "⏳ Waiting for services to start..."
             sleep 15
 
-            # Check MySQL health
-            echo "🔍 Checking MySQL..."
-            for i in {1..30}; do
-              if docker-compose exec -T mysql mysqladmin ping -h localhost --silent 2>/dev/null; then
-                echo "✅ MySQL is ready!"
-                break
-              fi
-              if [ $i -eq 30 ]; then
-                echo "❌ MySQL failed to start"
-                docker-compose logs mysql
-                exit 1
-              fi
-              echo "⏳ Waiting for MySQL... ($i/30)"
-              sleep 2
-            done
+            # Check if app container is running
+            echo "🔍 Checking app container..."
+            if ! docker-compose ps app | grep -q "Up"; then
+              echo "❌ App container is not running"
+              docker-compose logs app
+              exit 1
+            fi
 
             # Clear all Laravel caches
             echo "🧹 Clearing Laravel caches..."
