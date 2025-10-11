@@ -105,7 +105,7 @@ Route::post('/test-aws-direct', function() {
                 'autoloader' => file_exists(base_path('vendor/autoload.php')) ? 'exists' : 'missing'
             ], 500);
         }
-        
+
         // Test AWS SDK directly
         $s3Client = new \Aws\S3\S3Client([
             'version' => 'latest',
