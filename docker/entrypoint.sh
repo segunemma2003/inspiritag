@@ -3,20 +3,30 @@ set -e
 
 echo "🚀 Starting Laravel application setup..."
 
-# Wait for MySQL to be ready
-echo "⏳ Waiting for MySQL to be ready..."
+# Wait for MySQL on HOST (not Docker container)
+echo "⏳ Waiting for MySQL on host..."
 max_attempts=30
 attempt=0
-while ! mysqladmin ping -h"mysql" -u"${DB_USERNAME}" -p"${DB_PASSWORD}" --silent; do
+
+# Use host MySQL connection
+DB_HOST=${DB_HOST:-host.docker.internal}
+DB_USER=${DB_USERNAME:-root}
+DB_PASS=${DB_PASSWORD:-}
+
+while ! mysqladmin ping -h"${DB_HOST}" -u"${DB_USER}" -p"${DB_PASS}" --silent 2>/dev/null; do
     attempt=$((attempt + 1))
     if [ $attempt -eq $max_attempts ]; then
-        echo "❌ MySQL failed to start within expected time"
-        exit 1
+        echo "⚠️ MySQL connection failed after $max_attempts attempts"
+        echo "Continuing anyway - application will start but DB operations may fail"
+        break
     fi
-    echo "Waiting for MySQL... (attempt $attempt/$max_attempts)"
+    echo "Waiting for MySQL on ${DB_HOST}... (attempt $attempt/$max_attempts)"
     sleep 2
 done
-echo "✅ MySQL is ready!"
+
+if [ $attempt -lt $max_attempts ]; then
+    echo "✅ MySQL is ready!"
+fi
 
 # Install/update composer dependencies
 echo "📦 Installing Composer dependencies..."
