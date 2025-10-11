@@ -31,6 +31,7 @@ jobs:
             # Make scripts executable
             chmod +x fix_server_docker.sh
             chmod +x ensure_containers_running.sh
+            chmod +x docker/entrypoint.sh
 
             # Check if Docker is running
             if ! docker info > /dev/null 2>&1; then
@@ -39,161 +40,81 @@ jobs:
               sleep 5
             fi
 
-            # Stop all containers gracefully first
-            echo "🛑 Stopping all containers gracefully..."
+            # Backup .env file (important!)
+            echo "💾 Backing up .env file..."
+            cp .env .env.backup
+
+            # Stop containers gracefully
+            echo "🛑 Stopping containers..."
             docker-compose down --timeout 30
 
-            # Clean up any orphaned containers
-            echo "🧹 Cleaning up orphaned containers..."
-            docker-compose down --remove-orphans
+            # Restore .env file
+            echo "📋 Restoring .env file..."
+            cp .env.backup .env
 
-            # Always rebuild to ensure latest code is used
-            echo "🔨 Rebuilding containers with latest code..."
-            docker-compose build --no-cache
+            # Build containers (only rebuild if Dockerfile changed)
+            if git diff HEAD~1 HEAD --name-only | grep -E "(Dockerfile|docker/)" > /dev/null; then
+              echo "🔨 Rebuilding containers (Docker files changed)..."
+              docker-compose build --no-cache
+            else
+              echo "⏭️ Skipping rebuild (no Docker changes)"
+            fi
 
-            # Start all containers
-            echo "🚀 Starting all containers..."
+            # Start containers
+            echo "🚀 Starting containers..."
             docker-compose up -d
 
-            # Ensure containers stay running with restart policy
-            echo "🔄 Setting restart policies..."
-            docker-compose up -d --force-recreate
-
-            # Wait for services to be ready with proper health checks
-            echo "⏳ Waiting for services to start with health checks..."
-            timeout 300 bash -c 'until docker-compose ps | grep -q "healthy"; do
-              echo "Waiting for services to be healthy..."
-              docker-compose ps
-              sleep 5
-            done' || {
-              echo "❌ Services failed to become healthy within 5 minutes"
-              echo "🔧 Running Docker fix script..."
-              ./fix_server_docker.sh
-
-              # Check again after fix
-              if ! curl -f http://localhost/health > /dev/null 2>&1; then
-                echo "❌ Services still not healthy after fix"
-                docker-compose ps
-                docker-compose logs
-                exit 1
-              fi
+            # Wait for MySQL to be healthy
+            echo "⏳ Waiting for MySQL..."
+            timeout 60 bash -c 'until docker-compose exec -T mysql mysqladmin ping -h localhost --silent; do sleep 2; done' || {
+              echo "❌ MySQL failed to start"
+              docker-compose logs mysql
+              exit 1
             }
 
-            # Wait for services to be ready
-            echo "⏳ Waiting for services to start..."
-            sleep 10
+            # Clear all Laravel caches inside container
+            echo "🧹 Clearing Laravel caches..."
+            docker-compose exec -T app php artisan config:clear
+            docker-compose exec -T app php artisan route:clear
+            docker-compose exec -T app php artisan cache:clear
+            docker-compose exec -T app php artisan view:clear
+            docker-compose exec -T app rm -rf bootstrap/cache/*.php
 
-            # Run database migrations
-            echo "🗄️ Running database migrations..."
+            # Run migrations
+            echo "🗄️ Running migrations..."
             docker-compose exec -T app php artisan migrate --force
 
-            # Run seeders if needed (only for first deploy or when seeders change)
-            if git diff HEAD~1 HEAD --name-only | grep -E "(database/seeders)" > /dev/null; then
-              echo "🌱 Running database seeders..."
-              docker-compose exec -T app php artisan db:seed --force
-            fi
-
-            # Check if routes changed and force route cache clear
-            if git diff HEAD~1 HEAD --name-only | grep -E "(routes/)" > /dev/null; then
-              echo "🛣️ Routes changed, forcing route cache clear..."
-              docker-compose exec -T app rm -rf bootstrap/cache/routes.php
-              docker-compose exec -T app php artisan route:clear
-              docker-compose exec -T app php artisan config:clear
-              docker-compose exec -T app php artisan cache:clear
-            fi
-
-            # Clear caches
-            echo "🧹 Clearing caches..."
-            docker-compose exec -T app php artisan cache:clear
-            docker-compose exec -T app php artisan config:clear
-            docker-compose exec -T app php artisan route:clear
-            docker-compose exec -T app php artisan view:clear
-
-            # Force route cache clearing (comprehensive)
-            echo "🔄 Force clearing route cache..."
-            docker-compose exec -T app rm -rf bootstrap/cache/routes.php
-            docker-compose exec -T app php artisan route:clear
+            # Cache configuration (AFTER migrations)
+            echo "📦 Caching configuration..."
+            docker-compose exec -T app php artisan config:cache
             docker-compose exec -T app php artisan route:cache
-            docker-compose exec -T app php artisan route:clear
-            docker-compose exec -T app php artisan config:clear
-            docker-compose exec -T app php artisan cache:clear
-
-            # Warm up caches
-            echo "🔥 Warming up caches..."
-            docker-compose exec -T app php artisan cache:warm-up
+            docker-compose exec -T app php artisan view:cache
 
             # Restart queue workers
             echo "🔄 Restarting queue workers..."
             docker-compose exec -T app php artisan queue:restart
 
             # Health check
-            echo "🏥 Performing health check..."
+            echo "🏥 Health check..."
             sleep 10
 
-            # Check if containers are running
-            echo "📊 Checking container status..."
-            docker-compose ps
-
-            # Check if app container is running
-            if ! docker-compose ps app | grep -q "Up"; then
-              echo "❌ App container is not running"
-              docker-compose logs app
-              exit 1
-            fi
-
-            # Wait for app to be ready
-            echo "⏳ Waiting for app to be ready..."
-            for i in {1..30}; do
-              if curl -f http://localhost/health > /dev/null 2>&1; then
-                echo "✅ Health endpoint is responding"
-                break
-              else
-                echo "⏳ Attempt $i/30: Health endpoint not ready yet, waiting..."
-                echo "📊 Container status:"
-                docker-compose ps
-                echo "📋 App container logs:"
-                docker-compose logs --tail=20 app
-                sleep 2
-              fi
-            done
-
-            # Final health check with detailed error reporting
-            if ! curl -f http://localhost/health > /dev/null 2>&1; then
-              echo "❌ Health check failed after 30 attempts"
-              echo "📊 Final container status:"
-              docker-compose ps
-              echo "📋 All container logs:"
-              docker-compose logs
-              echo "🔍 Network connectivity test:"
-              docker-compose exec app curl -f http://localhost/health || echo "Health check failed from inside container"
-              exit 1
-            fi
-
-            # Test API endpoint
-            echo "🧪 Testing API endpoint..."
-            if curl -f http://localhost/api/categories > /dev/null 2>&1; then
-              echo "✅ API is responding successfully"
+            if curl -f http://localhost/health > /dev/null 2>&1; then
+              echo "✅ Deployment successful!"
             else
-              echo "⚠️ API endpoint not ready, but health check passed"
-              echo "📊 Container logs:"
+              echo "❌ Health check failed"
               docker-compose logs app
+              exit 1
             fi
 
-            # Check Docker containers status
+            # Test API
+            echo "🧪 Testing API..."
+            curl -f http://localhost/api/categories || echo "⚠️ API test failed"
+
+            # Container status
             echo "📊 Container status:"
             docker-compose ps
 
-            # Set up systemd service for auto-restart on server reboot
-            echo "🔧 Setting up systemd service for auto-restart..."
-            sudo cp inspirtag-docker.service /etc/systemd/system/
-            sudo systemctl daemon-reload
-            sudo systemctl enable inspirtag-docker.service
-
-            # Start container monitoring to ensure they stay running
-            echo "🔄 Starting container monitoring..."
-            ./ensure_containers_running.sh
-
-            echo "🎉 Deployment completed successfully!"
+            echo "🎉 Deployment completed!"
 
       - name: Notify deployment status
         if: always()

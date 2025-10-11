@@ -5,34 +5,44 @@ echo "🚀 Starting Laravel application setup..."
 
 # Wait for MySQL to be ready
 echo "⏳ Waiting for MySQL to be ready..."
+max_attempts=30
+attempt=0
 while ! mysqladmin ping -h"mysql" -u"${DB_USERNAME}" -p"${DB_PASSWORD}" --silent; do
-    echo "Waiting for MySQL..."
+    attempt=$((attempt + 1))
+    if [ $attempt -eq $max_attempts ]; then
+        echo "❌ MySQL failed to start within expected time"
+        exit 1
+    fi
+    echo "Waiting for MySQL... (attempt $attempt/$max_attempts)"
     sleep 2
 done
 echo "✅ MySQL is ready!"
 
+# Install/update composer dependencies
+echo "📦 Installing Composer dependencies..."
+composer install --no-dev --optimize-autoloader --no-interaction
+
+# CRITICAL: Clear all cached configs to read .env file
+echo "🧹 Clearing all caches..."
+php artisan config:clear
+php artisan route:clear
+php artisan view:clear
+php artisan cache:clear
+rm -rf bootstrap/cache/*.php
+
 # Generate application key if not set
-if [ "$APP_KEY" = "base64:your-app-key-here" ]; then
+if [ -z "$APP_KEY" ] || [ "$APP_KEY" = "base64:your-app-key-here" ]; then
     echo "🔑 Generating application key..."
     php artisan key:generate --force
 fi
 
 # Run migrations
 echo "🗄️ Running database migrations..."
-php artisan migrate --force
+php artisan migrate --force || echo "⚠️ Migration failed, continuing..."
 
-# Run seeders (only if SEED_DATABASE is set to true)
-if [ "$SEED_DATABASE" = "true" ]; then
-    echo "🌱 Running database seeders..."
-    php artisan db:seed --force
-fi
-
-# Clear and cache config
-echo "🧹 Clearing and caching configuration..."
-php artisan config:clear
+# Cache config only AFTER migrations
+echo "📦 Caching configuration..."
 php artisan config:cache
-php artisan route:cache
-php artisan view:cache
 
 # Set proper permissions
 echo "🔐 Setting proper permissions..."

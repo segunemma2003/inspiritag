@@ -24,7 +24,6 @@ class S3Service
                 'secret' => config('filesystems.disks.s3.secret'),
             ],
             'use_path_style_endpoint' => config('filesystems.disks.s3.use_path_style_endpoint', false),
-            'endpoint' => 'https://s3.eu-north-1.amazonaws.com', // Force the correct region endpoint
         ]);
     }
 
@@ -68,20 +67,13 @@ class S3Service
     public static function deleteFile(string $path): bool
     {
         try {
-            // Use S3 client directly for deletion
-            $s3Client = new \Aws\S3\S3Client([
-                'version' => 'latest',
-                'region' => env('AWS_DEFAULT_REGION'),
-                'credentials' => [
-                    'key' => env('AWS_ACCESS_KEY_ID'),
-                    'secret' => env('AWS_SECRET_ACCESS_KEY'),
-                ],
-            ]);
-            
+            $s3Client = self::getS3Client();
+
             $s3Client->deleteObject([
-                'Bucket' => env('AWS_BUCKET'),
+                'Bucket' => config('filesystems.disks.s3.bucket'),
                 'Key' => $path,
             ]);
+
             return true;
         } catch (\Exception $e) {
             Log::error("Failed to delete file from S3: {$path}. Error: " . $e->getMessage());
@@ -108,8 +100,8 @@ class S3Service
      */
     public static function getFileUrl(string $path): string
     {
-        $bucket = env('AWS_BUCKET');
-        $region = env('AWS_DEFAULT_REGION');
+        $bucket = config('filesystems.disks.s3.bucket');
+        $region = config('filesystems.disks.s3.region');
         return "https://{$bucket}.s3.{$region}.amazonaws.com/{$path}";
     }
 
@@ -169,18 +161,9 @@ class S3Service
     public static function getTemporaryUrl(string $path, $expiration, string $method = 'GET', $contentType = null): string
     {
         try {
-            // Create S3 client directly without Laravel facades
-            $s3Client = new \Aws\S3\S3Client([
-                'version' => 'latest',
-                'region' => env('AWS_DEFAULT_REGION'),
-                'credentials' => [
-                    'key' => env('AWS_ACCESS_KEY_ID'),
-                    'secret' => env('AWS_SECRET_ACCESS_KEY'),
-                ],
-            ]);
-            
-            $bucket = env('AWS_BUCKET');
-            
+            $s3Client = self::getS3Client();
+            $bucket = config('filesystems.disks.s3.bucket');
+
             if ($method === 'PUT') {
                 $cmd = $s3Client->getCommand('PutObject', [
                     'Bucket' => $bucket,
@@ -197,13 +180,11 @@ class S3Service
             $request = $s3Client->createPresignedRequest($cmd, $expiration);
             return (string) $request->getUri();
         } catch (AwsException $e) {
-            // Use direct logging instead of Laravel Log facade
-            error_log("AWS Error generating temporary URL for: {$path}. Error: " . $e->getAwsErrorMessage());
-            return self::getFileUrl($path);
+            Log::error("AWS Error generating temporary URL for: {$path}. Error: " . $e->getAwsErrorMessage());
+            throw $e; // Re-throw to be caught by controller
         } catch (\Exception $e) {
-            // Use direct logging instead of Laravel Log facade
-            error_log("Failed to generate temporary URL for: {$path}. Error: " . $e->getMessage());
-            return self::getFileUrl($path);
+            Log::error("Failed to generate temporary URL for: {$path}. Error: " . $e->getMessage());
+            throw $e; // Re-throw to be caught by controller
         }
     }
 

@@ -18,6 +18,8 @@ RUN apt-get update && apt-get install -y \
     supervisor \
     redis-server \
     cron \
+    mysql-client \
+    wget \
     && rm -rf /var/lib/apt/lists/*
 
 # Install PHP extensions
@@ -29,35 +31,21 @@ RUN pecl install redis && docker-php-ext-enable redis
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Copy application files
-COPY . .
-
-# Install PHP dependencies
-RUN composer install --no-dev --optimize-autoloader
-
-# Set permissions
-RUN chown -R www-data:www-data /var/www/html \
-    && chmod -R 755 /var/www/html/storage \
-    && chmod -R 755 /var/www/html/bootstrap/cache
-
-# Copy configuration files
+# Copy only Docker configuration files (NOT application code)
 COPY docker/nginx.conf /etc/nginx/sites-available/default
 COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 COPY docker/php.ini /usr/local/etc/php/conf.d/custom.ini
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 
-# Create necessary directories and set entrypoint permissions
+# Create necessary directories and set permissions
 RUN mkdir -p /var/log/supervisor \
     && mkdir -p /var/run/redis \
     && mkdir -p /var/log/nginx \
     && mkdir -p /var/log/php-fpm \
     && chmod +x /usr/local/bin/entrypoint.sh
 
-# Install MySQL client for health checks
-RUN apt-get update && apt-get install -y mysql-client && rm -rf /var/lib/apt/lists/*
-
 # Expose port
-EXPOSE 80
+EXPOSE 9000
 
 # Use entrypoint script
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
