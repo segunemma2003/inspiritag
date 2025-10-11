@@ -98,13 +98,26 @@ class S3Service
     /**
      * Get file URL from S3
      */
+    // public static function getFileUrl(string $path): string
+    // {
+    //     $bucket = config('filesystems.disks.s3.bucket');
+    //     $region = config('filesystems.disks.s3.region');
+    //     return "https://{$bucket}.s3.{$region}.amazonaws.com/{$path}";
+    // }
+
+
     public static function getFileUrl(string $path): string
-    {
-        $bucket = config('filesystems.disks.s3.bucket');
-        $region = config('filesystems.disks.s3.region');
-        return "https://{$bucket}.s3.{$region}.amazonaws.com/{$path}";
+{
+    $cdnUrl = config('filesystems.disks.s3.cdn_url');
+
+    if ($cdnUrl) {
+        return "{$cdnUrl}/{$path}";
     }
 
+    $bucket = config('filesystems.disks.s3.bucket');
+    $region = config('filesystems.disks.s3.region');
+    return "https://{$bucket}.s3.{$region}.amazonaws.com/{$path}";
+}
     /**
      * Get file URL from S3 (alias for getFileUrl)
      */
