@@ -84,6 +84,9 @@ Route::post('/test-controller-upload', [PostController::class, 'testUpload']);
 // Test S3Service directly
 Route::post('/test-s3-service', function() {
     try {
+        // Ensure autoloader is loaded
+        require_once base_path('vendor/autoload.php');
+        
         $s3Service = new \App\Services\S3Service();
         return response()->json(['success' => true, 'message' => 'S3Service instantiated successfully']);
     } catch (\Exception $e) {
@@ -94,6 +97,9 @@ Route::post('/test-s3-service', function() {
 // Test AWS SDK directly without Laravel facades
 Route::post('/test-aws-direct', function() {
     try {
+        // Ensure autoloader is loaded
+        require_once base_path('vendor/autoload.php');
+        
         // Test AWS SDK directly
         $s3Client = new \Aws\S3\S3Client([
             'version' => 'latest',
@@ -103,25 +109,25 @@ Route::post('/test-aws-direct', function() {
                 'secret' => env('AWS_SECRET_ACCESS_KEY'),
             ],
         ]);
-        
+
         // Test if we can create a presigned URL directly
         $cmd = $s3Client->getCommand('PutObject', [
             'Bucket' => env('AWS_BUCKET'),
             'Key' => 'test/test_' . time() . '.jpg',
             'ContentType' => 'image/jpeg',
         ]);
-        
+
         $request = $s3Client->createPresignedRequest($cmd, '+15 minutes');
         $presignedUrl = (string) $request->getUri();
-        
+
         return response()->json([
-            'success' => true, 
+            'success' => true,
             'message' => 'AWS SDK working directly',
             'presigned_url' => substr($presignedUrl, 0, 100) . '...'
         ]);
     } catch (\Exception $e) {
         return response()->json([
-            'success' => false, 
+            'success' => false,
             'error' => $e->getMessage(),
             'trace' => $e->getTraceAsString()
         ], 500);
