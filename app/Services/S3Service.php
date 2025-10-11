@@ -108,12 +108,18 @@ class S3Service
 
     public static function getFileUrl(string $path): string
 {
+    // Use CDN if configured
     $cdnUrl = config('filesystems.disks.s3.cdn_url');
 
     if ($cdnUrl) {
-        return "{$cdnUrl}/{$path}";
+        // Ensure CDN URL has protocol
+        if (!str_starts_with($cdnUrl, 'http://') && !str_starts_with($cdnUrl, 'https://')) {
+            $cdnUrl = 'https://' . $cdnUrl;
+        }
+        return rtrim($cdnUrl, '/') . '/' . ltrim($path, '/');
     }
 
+    // Fallback to direct S3
     $bucket = config('filesystems.disks.s3.bucket');
     $region = config('filesystems.disks.s3.region');
     return "https://{$bucket}.s3.{$region}.amazonaws.com/{$path}";
