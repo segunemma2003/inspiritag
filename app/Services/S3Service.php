@@ -35,7 +35,7 @@ class S3Service
     {
         $filename = time() . '_' . Str::random(10) . '.' . $file->getClientOriginalExtension();
         $path = $file->storeAs($folder, $filename, 's3');
-        $url = Storage::disk('s3')->url($path);
+        $url = self::getFileUrl($path);
 
         return [
             'path' => $path,
@@ -68,7 +68,21 @@ class S3Service
     public static function deleteFile(string $path): bool
     {
         try {
-            return Storage::disk('s3')->delete($path);
+            // Use S3 client directly for deletion
+            $s3Client = new \Aws\S3\S3Client([
+                'version' => 'latest',
+                'region' => env('AWS_DEFAULT_REGION'),
+                'credentials' => [
+                    'key' => env('AWS_ACCESS_KEY_ID'),
+                    'secret' => env('AWS_SECRET_ACCESS_KEY'),
+                ],
+            ]);
+            
+            $s3Client->deleteObject([
+                'Bucket' => env('AWS_BUCKET'),
+                'Key' => $path,
+            ]);
+            return true;
         } catch (\Exception $e) {
             Log::error("Failed to delete file from S3: {$path}. Error: " . $e->getMessage());
             return false;
@@ -94,7 +108,9 @@ class S3Service
      */
     public static function getFileUrl(string $path): string
     {
-        return Storage::disk('s3')->url($path);
+        $bucket = env('AWS_BUCKET');
+        $region = env('AWS_DEFAULT_REGION');
+        return "https://{$bucket}.s3.{$region}.amazonaws.com/{$path}";
     }
 
     /**
@@ -102,7 +118,7 @@ class S3Service
      */
     public static function getUrl(string $path): string
     {
-        return Storage::disk('s3')->url($path);
+        return self::getFileUrl($path);
     }
 
     /**
@@ -147,47 +163,46 @@ class S3Service
     }
 
     /**
-     * Generate a temporary URL for S3 operations using Laravel's working Storage facade
-     * Uses the same S3 client that works for direct uploads
+     * Generate a temporary URL for S3 operations using direct AWS SDK
+     * This method works without Laravel facades
      */
     public static function getTemporaryUrl(string $path, $expiration, string $method = 'GET', $contentType = null): string
     {
         try {
+            // Create S3 client directly without Laravel facades
+            $s3Client = new \Aws\S3\S3Client([
+                'version' => 'latest',
+                'region' => env('AWS_DEFAULT_REGION'),
+                'credentials' => [
+                    'key' => env('AWS_ACCESS_KEY_ID'),
+                    'secret' => env('AWS_SECRET_ACCESS_KEY'),
+                ],
+            ]);
+            
+            $bucket = env('AWS_BUCKET');
+            
             if ($method === 'PUT') {
-                // Use Laravel's working Storage facade to get the S3 client
-                $disk = Storage::disk('s3');
-                $adapter = $disk->getDriver()->getAdapter();
-                $s3Client = $adapter->getClient(); // This uses Laravel's working config
-                $bucket = config('filesystems.disks.s3.bucket'); // This works for direct uploads
-
-                // Build PutObject command using Laravel's working S3 client
-                $command = $s3Client->getCommand('PutObject', [
+                $cmd = $s3Client->getCommand('PutObject', [
                     'Bucket' => $bucket,
                     'Key' => $path,
                     'ContentType' => $contentType ?: 'application/octet-stream',
                 ]);
-
-                // Create the presigned request using Laravel's working client
-                $request = $s3Client->createPresignedRequest($command, $expiration);
-                $presignedUrl = (string) $request->getUri();
-
-                Log::info('Generated presigned URL using Laravel\'s working Storage facade', [
-                    'path' => $path,
-                    'content_type' => $contentType,
-                    'url_host' => parse_url($presignedUrl, PHP_URL_HOST),
-                    'method' => $method,
+            } else {
+                $cmd = $s3Client->getCommand('GetObject', [
+                    'Bucket' => $bucket,
+                    'Key' => $path,
                 ]);
-
-                return $presignedUrl;
             }
 
-            // For GET requests, use Laravel's method
-            return Storage::disk('s3')->temporaryUrl($path, $expiration);
+            $request = $s3Client->createPresignedRequest($cmd, $expiration);
+            return (string) $request->getUri();
         } catch (AwsException $e) {
-            Log::error("AWS Error generating temporary URL for: {$path}. Error: " . $e->getAwsErrorMessage());
+            // Use direct logging instead of Laravel Log facade
+            error_log("AWS Error generating temporary URL for: {$path}. Error: " . $e->getAwsErrorMessage());
             return self::getFileUrl($path);
         } catch (\Exception $e) {
-            Log::error("Failed to generate temporary URL for: {$path}. Error: " . $e->getMessage());
+            // Use direct logging instead of Laravel Log facade
+            error_log("Failed to generate temporary URL for: {$path}. Error: " . $e->getMessage());
             return self::getFileUrl($path);
         }
     }
