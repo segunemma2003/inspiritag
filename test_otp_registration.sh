@@ -14,7 +14,7 @@ REGISTER_RESPONSE=$(curl -s -X POST "$API_URL/register" \
   -H "Content-Type: application/json" \
   -d '{
     "full_name": "Test User",
-    "email": "testuser@example.com",
+    "email": "segunemma2003@gmail.com",
     "username": "testuser_'$(date +%s)'",
     "password": "Password123!",
     "password_confirmation": "Password123!",

@@ -49,7 +49,7 @@ class AuthController extends Controller
 
         // Generate and send OTP
         $otpRecord = Otp::createOTP($request->email, 'registration');
-        
+
         // Send OTP via email
         Notification::route('mail', $request->email)
             ->notify(new SendOtpNotification($otpRecord->otp, 'registration'));
@@ -149,7 +149,7 @@ class AuthController extends Controller
 
         // Generate and send new OTP
         $otpRecord = Otp::createOTP($request->email, $request->type);
-        
+
         // Send OTP via email
         Notification::route('mail', $request->email)
             ->notify(new SendOtpNotification($otpRecord->otp, $request->type));
@@ -257,7 +257,7 @@ class AuthController extends Controller
 
         // Generate and send OTP
         $otpRecord = Otp::createOTP($request->email, 'password_reset');
-        
+
         // Send OTP via email
         Notification::route('mail', $request->email)
             ->notify(new SendOtpNotification($otpRecord->otp, 'password_reset'));
