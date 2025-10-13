@@ -5,11 +5,15 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\Device;
+use App\Models\Otp;
+use App\Notifications\SendOtpNotification;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Laravel\Socialite\Facades\Socialite;
 
@@ -23,6 +27,49 @@ class AuthController extends Controller
             'username' => 'required|string|max:255|unique:users',
             'password' => 'required|string|min:8|confirmed',
             'terms_accepted' => 'required|accepted',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation errors',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        // Create user without email verification
+        $user = User::create([
+            'name' => $request->full_name,
+            'full_name' => $request->full_name,
+            'username' => $request->username,
+            'email' => $request->email,
+            'password' => Hash::make($request->password),
+            'email_verified_at' => null, // User must verify email first
+        ]);
+
+        // Generate and send OTP
+        $otpRecord = Otp::createOTP($request->email, 'registration');
+        
+        // Send OTP via email
+        Notification::route('mail', $request->email)
+            ->notify(new SendOtpNotification($otpRecord->otp, 'registration'));
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Registration successful. Please check your email for OTP to verify your account.',
+            'data' => [
+                'email' => $user->email,
+                'otp_expires_in' => '10 minutes',
+                'account_expires_in' => '30 minutes if not verified'
+            ]
+        ], 201);
+    }
+
+    public function verifyOtp(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'email' => 'required|email|exists:users,email',
+            'otp' => 'required|string|size:6',
             // Device registration fields (optional)
             'device_token' => 'nullable|string|max:255',
             'device_type' => 'nullable|string|in:android,ios,web',
@@ -39,14 +86,24 @@ class AuthController extends Controller
             ], 422);
         }
 
-        $user = User::create([
-            'name' => $request->full_name,
-            'full_name' => $request->full_name,
-            'username' => $request->username,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
-        ]);
+        // Verify OTP
+        $otpRecord = Otp::verifyOTP($request->email, $request->otp, 'registration');
 
+        if (!$otpRecord) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid or expired OTP'
+            ], 400);
+        }
+
+        // Mark OTP as used
+        $otpRecord->markAsUsed();
+
+        // Find user and mark email as verified
+        $user = User::where('email', $request->email)->first();
+        $user->markEmailAsVerified();
+
+        // Generate auth token
         $token = $user->createToken('auth_token')->plainTextToken;
 
         // Register device if provided
@@ -56,13 +113,54 @@ class AuthController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'User registered successfully',
+            'message' => 'Email verified successfully. You can now login.',
             'data' => [
                 'user' => $user,
                 'token' => $token,
                 'token_type' => 'Bearer'
             ]
-        ], 201);
+        ]);
+    }
+
+    public function resendOtp(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'email' => 'required|email|exists:users,email',
+            'type' => 'required|in:registration,password_reset',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation errors',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        $user = User::where('email', $request->email)->first();
+
+        // For registration, check if already verified
+        if ($request->type === 'registration' && $user->hasVerifiedEmail()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Email already verified'
+            ], 400);
+        }
+
+        // Generate and send new OTP
+        $otpRecord = Otp::createOTP($request->email, $request->type);
+        
+        // Send OTP via email
+        Notification::route('mail', $request->email)
+            ->notify(new SendOtpNotification($otpRecord->otp, $request->type));
+
+        return response()->json([
+            'success' => true,
+            'message' => 'OTP sent successfully',
+            'data' => [
+                'otp_expires_in' => '10 minutes'
+            ]
+        ]);
     }
 
     public function login(Request $request)
@@ -94,6 +192,17 @@ class AuthController extends Controller
         }
 
         $user = Auth::user();
+
+        // Check if email is verified
+        if (!$user->hasVerifiedEmail()) {
+            Auth::logout();
+            return response()->json([
+                'success' => false,
+                'message' => 'Please verify your email address before logging in. Check your email for OTP.',
+                'error_code' => 'EMAIL_NOT_VERIFIED'
+            ], 403);
+        }
+
         $token = $user->createToken('auth_token')->plainTextToken;
 
         // Register device if provided
@@ -138,29 +247,26 @@ class AuthController extends Controller
 
         $user = User::where('email', $request->email)->first();
 
-        // Generate 6-digit OTP
-        $otp = str_pad(random_int(100000, 999999), 6, '0', STR_PAD_LEFT);
+        // Check if user's email is verified
+        if (!$user->hasVerifiedEmail()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Please verify your email address first'
+            ], 403);
+        }
 
-        // Store OTP in password_reset_tokens table (expires in 10 minutes)
-        \DB::table('password_reset_tokens')->updateOrInsert(
-            ['email' => $user->email],
-            [
-                'email' => $user->email,
-                'token' => \Hash::make($otp),
-                'created_at' => now()
-            ]
-        );
-
-        // Send OTP via email (you can implement this with your preferred email service)
-        // For now, we'll log the OTP for testing
-        \Log::info("Password reset OTP for {$user->email}: {$otp}");
+        // Generate and send OTP
+        $otpRecord = Otp::createOTP($request->email, 'password_reset');
+        
+        // Send OTP via email
+        Notification::route('mail', $request->email)
+            ->notify(new SendOtpNotification($otpRecord->otp, 'password_reset'));
 
         return response()->json([
             'success' => true,
             'message' => 'OTP sent to your email address',
             'data' => [
-                'otp' => $otp, // Remove this in production
-                'expires_in' => '10 minutes'
+                'otp_expires_in' => '10 minutes'
             ]
         ]);
     }
@@ -169,7 +275,7 @@ class AuthController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'email' => 'required|email|exists:users,email',
-            'token' => 'required|string',
+            'otp' => 'required|string|size:6',
             'password' => 'required|string|min:8|confirmed',
         ]);
 
@@ -181,43 +287,24 @@ class AuthController extends Controller
             ], 422);
         }
 
-        // Check if token exists and is valid
-        $passwordReset = \DB::table('password_reset_tokens')
-            ->where('email', $request->email)
-            ->first();
+        // Verify OTP
+        $otpRecord = Otp::verifyOTP($request->email, $request->otp, 'password_reset');
 
-        if (!$passwordReset) {
+        if (!$otpRecord) {
             return response()->json([
                 'success' => false,
-                'message' => 'Invalid or expired reset token'
+                'message' => 'Invalid or expired OTP'
             ], 400);
         }
 
-        // Check if token is not expired (1 hour)
-        if (now()->diffInMinutes($passwordReset->created_at) > 60) {
-            \DB::table('password_reset_tokens')->where('email', $request->email)->delete();
-            return response()->json([
-                'success' => false,
-                'message' => 'Reset token has expired'
-            ], 400);
-        }
-
-        // Verify token
-        if (!\Hash::check($request->token, $passwordReset->token)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Invalid reset token'
-            ], 400);
-        }
+        // Mark OTP as used
+        $otpRecord->markAsUsed();
 
         // Update user password
         $user = User::where('email', $request->email)->first();
         $user->update([
-            'password' => \Hash::make($request->password)
+            'password' => Hash::make($request->password)
         ]);
-
-        // Delete the reset token
-        \DB::table('password_reset_tokens')->where('email', $request->email)->delete();
 
         // Revoke all existing tokens for security
         $user->tokens()->delete();
@@ -233,6 +320,8 @@ class AuthController extends Controller
         $validator = Validator::make($request->all(), [
             'firebase_token' => 'required|string',
             'provider' => 'required|in:google,apple',
+            'email' => 'required|email',
+            'name' => 'nullable|string',
         ]);
 
         if ($validator->fails()) {
@@ -243,19 +332,25 @@ class AuthController extends Controller
             ], 422);
         }
 
-        // Here you would verify the Firebase token
-        // For now, we'll create a mock response
+        // Here you would verify the Firebase token with Firebase Admin SDK
+        // For now, we'll proceed with the user creation/login
         $user = User::where('email', $request->email)->first();
 
         if (!$user) {
-            // Create new user if doesn't exist
+            // Create new user with email already verified (social auth providers verify emails)
             $user = User::create([
                 'name' => $request->name ?? 'User',
                 'full_name' => $request->name ?? 'User',
                 'email' => $request->email,
                 'username' => Str::slug($request->name ?? 'user') . '_' . Str::random(4),
                 'password' => Hash::make(Str::random(16)),
+                'email_verified_at' => now(), // Auto-verify for social auth
             ]);
+        } else {
+            // If user exists but email not verified, verify it now
+            if (!$user->hasVerifiedEmail()) {
+                $user->markEmailAsVerified();
+            }
         }
 
         $token = $user->createToken('auth_token')->plainTextToken;
@@ -337,7 +432,7 @@ class AuthController extends Controller
             }
         } catch (\Exception $e) {
             // Log error but don't fail the login/register process
-            \Log::error('Failed to register device during auth', [
+            Log::error('Failed to register device during auth', [
                 'user_id' => $user->id,
                 'device_token' => $request->device_token,
                 'error' => $e->getMessage(),

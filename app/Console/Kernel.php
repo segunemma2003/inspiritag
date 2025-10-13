@@ -12,6 +12,12 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule): void
     {
+        // Delete unverified users - every 5 minutes
+        $schedule->command('users:delete-unverified')
+            ->everyFiveMinutes()
+            ->withoutOverlapping()
+            ->runInBackground();
+
         // Cache warming - every 5 minutes
         $schedule->command('cache:warm-up')
             ->everyFiveMinutes()

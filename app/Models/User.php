@@ -111,6 +111,11 @@ class User extends Authenticatable
         return $this->hasMany(Booking::class);
     }
 
+    public function otps()
+    {
+        return $this->hasMany(Otp::class, 'email', 'email');
+    }
+
     /**
      * Get unread notifications count
      */
@@ -125,5 +130,23 @@ class User extends Authenticatable
     public function getActiveDeviceTokensAttribute()
     {
         return $this->devices()->where('is_active', true)->pluck('device_token')->toArray();
+    }
+
+    /**
+     * Check if user's email is verified
+     */
+    public function hasVerifiedEmail(): bool
+    {
+        return !is_null($this->email_verified_at);
+    }
+
+    /**
+     * Mark user's email as verified
+     */
+    public function markEmailAsVerified(): bool
+    {
+        return $this->forceFill([
+            'email_verified_at' => $this->freshTimestamp(),
+        ])->save();
     }
 }

@@ -33,7 +33,7 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
 # Copy only Docker configuration files (NOT application code)
 COPY docker/nginx.conf /etc/nginx/sites-available/default
-COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+COPY docker/supervisord-laravel.conf /etc/supervisor/conf.d/laravel.conf
 COPY docker/php.ini /usr/local/etc/php/conf.d/custom.ini
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 
