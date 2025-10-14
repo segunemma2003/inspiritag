@@ -1,0 +1,27 @@
+--- a/app/Http/Controllers/Api/UserController.php
++++ b/app/Http/Controllers/Api/UserController.php
+@@ -68,14 +68,17 @@ class UserController extends Controller
+         $data = $request->only(['full_name', 'username', 'bio', 'profession', 'interests']);
+ 
+         if ($request->hasFile('profile_picture')) {
++            // Use Laravel's built-in storage instead of S3
+             // Delete old profile picture
+             if ($user->profile_picture) {
+-                $oldPath = str_replace(config('filesystems.disks.s3.url'), '', $user->profile_picture);
+-                S3Service::deleteFile($oldPath);
++                $oldPath = str_replace(url('storage/'), '', $user->profile_picture);
++                Storage::delete('public/' . $oldPath);
+             }
+ 
+-            // Store new profile picture using S3Service
++            // Store new profile picture in local storage
+             $file = $request->file('profile_picture');
+-            $uploadResult = S3Service::uploadWithCDN($file, 'profiles');
+-            $data['profile_picture'] = $uploadResult['url'];
++            $filename = time() . '_' . \Illuminate\Support\Str::random(10) . '.' . $file->getClientOriginalExtension();
++            $path = $file->storeAs('profiles', $filename, 'public');
++            $data['profile_picture'] = url('storage/' . $path);
+         }
+ 
+         $user->update($data);
+

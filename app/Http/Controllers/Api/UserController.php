@@ -69,16 +69,50 @@ class UserController extends Controller
         $data = $request->only(['full_name', 'username', 'bio', 'profession', 'interests']);
 
         if ($request->hasFile('profile_picture')) {
-            // Delete old profile picture
-            if ($user->profile_picture) {
-                $oldPath = str_replace(config('filesystems.disks.s3.url'), '', $user->profile_picture);
-                S3Service::deleteFile($oldPath);
-            }
+            try {
+                // Delete old profile picture (with error handling)
+                if ($user->profile_picture) {
+                    try {
+                        // Extract the S3 path from the full URL
+                        $s3Url = config('filesystems.disks.s3.url');
+                        $cdnUrl = config('filesystems.disks.s3.cdn_url');
 
-            // Store new profile picture using S3Service
-            $file = $request->file('profile_picture');
-            $uploadResult = S3Service::uploadWithCDN($file, 'profiles');
-            $data['profile_picture'] = $uploadResult['url'];
+                        $oldPath = $user->profile_picture;
+
+                        // Remove domain part to get just the path
+                        if ($s3Url) {
+                            $oldPath = str_replace($s3Url, '', $oldPath);
+                        }
+                        if ($cdnUrl) {
+                            $oldPath = str_replace($cdnUrl, '', $oldPath);
+                        }
+
+                        // Remove leading slashes and http/https
+                        $oldPath = ltrim($oldPath, '/');
+                        $oldPath = preg_replace('#^https?://[^/]+/#', '', $oldPath);
+
+                        if ($oldPath && !str_contains($oldPath, 'http')) {
+                            S3Service::deleteFile($oldPath);
+                        }
+                    } catch (\Exception $e) {
+                        // Log but don't fail - old picture deletion is not critical
+                        Log::warning("Failed to delete old profile picture: " . $e->getMessage());
+                    }
+                }
+
+                // Store new profile picture using S3Service
+                $file = $request->file('profile_picture');
+                $uploadResult = S3Service::uploadWithCDN($file, 'profiles');
+                $data['profile_picture'] = $uploadResult['url'];
+
+            } catch (\Exception $e) {
+                Log::error("Profile picture upload failed: " . $e->getMessage());
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to upload profile picture',
+                    'error' => $e->getMessage()
+                ], 500);
+            }
         }
 
         $user->update($data);
