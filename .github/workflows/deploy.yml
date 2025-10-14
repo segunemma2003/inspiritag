@@ -58,20 +58,20 @@ jobs:
               sed -i "s|^DB_HOST=.*|DB_HOST=$DOCKER_IP|" .env
               echo "✅ Updated DB_HOST to $DOCKER_IP"
             fi
-            
+
             # Ensure DB_HOST is set
             if ! grep -q "^DB_HOST=" .env; then
               DOCKER_IP=$(ip addr show docker0 2>/dev/null | grep 'inet ' | awk '{print $2}' | cut -d/ -f1 || echo "172.17.0.1")
               echo "DB_HOST=$DOCKER_IP" >> .env
               echo "✅ Added DB_HOST=$DOCKER_IP"
             fi
-            
+
             # Verify MySQL is accessible
             echo "🔍 Checking MySQL connection..."
             DB_HOST=$(grep "^DB_HOST=" .env | cut -d= -f2)
             DB_USER=$(grep "^DB_USERNAME=" .env | cut -d= -f2)
             DB_PASS=$(grep "^DB_PASSWORD=" .env | cut -d= -f2)
-            
+
             if mysqladmin ping -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" --silent 2>/dev/null; then
               echo "✅ MySQL connection successful at $DB_HOST"
             else
