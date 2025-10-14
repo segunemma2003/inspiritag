@@ -48,22 +48,38 @@ jobs:
             grep -q "AWS_ENDPOINT=" .env || echo "AWS_ENDPOINT=" >> .env
             grep -q "AWS_USE_PATH_STYLE_ENDPOINT=" .env || echo "AWS_USE_PATH_STYLE_ENDPOINT=false" >> .env
 
-            # Update DB_HOST only if not already set (don't override existing working config)
-            if ! grep -q "^DB_HOST=" .env; then
-              echo "DB_HOST=host.docker.internal" >> .env
+            # Fix DB_HOST for Linux (host.docker.internal doesn't work on Linux)
+            echo "🔍 Checking DB_HOST configuration..."
+            if grep -q "^DB_HOST=host.docker.internal" .env; then
+              echo "⚠️ Found host.docker.internal (doesn't work on Linux)"
+              echo "Updating to Docker bridge IP..."
+              # Find Docker bridge IP or use default
+              DOCKER_IP=$(ip addr show docker0 2>/dev/null | grep 'inet ' | awk '{print $2}' | cut -d/ -f1 || echo "172.17.0.1")
+              sed -i "s|^DB_HOST=.*|DB_HOST=$DOCKER_IP|" .env
+              echo "✅ Updated DB_HOST to $DOCKER_IP"
             fi
-
-            # Verify MySQL is accessible before proceeding
+            
+            # Ensure DB_HOST is set
+            if ! grep -q "^DB_HOST=" .env; then
+              DOCKER_IP=$(ip addr show docker0 2>/dev/null | grep 'inet ' | awk '{print $2}' | cut -d/ -f1 || echo "172.17.0.1")
+              echo "DB_HOST=$DOCKER_IP" >> .env
+              echo "✅ Added DB_HOST=$DOCKER_IP"
+            fi
+            
+            # Verify MySQL is accessible
             echo "🔍 Checking MySQL connection..."
             DB_HOST=$(grep "^DB_HOST=" .env | cut -d= -f2)
             DB_USER=$(grep "^DB_USERNAME=" .env | cut -d= -f2)
             DB_PASS=$(grep "^DB_PASSWORD=" .env | cut -d= -f2)
-
-            if ! mysqladmin ping -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" --silent 2>/dev/null; then
-              echo "⚠️ WARNING: Cannot connect to MySQL at $DB_HOST"
-              echo "App will start but may not function properly"
+            
+            if mysqladmin ping -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" --silent 2>/dev/null; then
+              echo "✅ MySQL connection successful at $DB_HOST"
             else
-              echo "✅ MySQL connection successful"
+              echo "⚠️ WARNING: Cannot connect to MySQL at $DB_HOST"
+              echo "Trying to fix with Docker bridge IP..."
+              DOCKER_IP=$(ip addr show docker0 2>/dev/null | grep 'inet ' | awk '{print $2}' | cut -d/ -f1 || echo "172.17.0.1")
+              sed -i "s|^DB_HOST=.*|DB_HOST=$DOCKER_IP|" .env
+              echo "Updated DB_HOST to $DOCKER_IP"
             fi
 
             # Backup .env file
