@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Test OTP Registration Flow
-API_URL="http://localhost:8000/api"
+API_URL="http://38.180.244.178/api"
 
 echo "=========================================="
 echo "Testing OTP Registration Flow"

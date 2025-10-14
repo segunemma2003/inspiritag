@@ -48,8 +48,23 @@ jobs:
             grep -q "AWS_ENDPOINT=" .env || echo "AWS_ENDPOINT=" >> .env
             grep -q "AWS_USE_PATH_STYLE_ENDPOINT=" .env || echo "AWS_USE_PATH_STYLE_ENDPOINT=false" >> .env
 
-            # Update DB_HOST to use host MySQL (not Docker MySQL)
-            sed -i 's/^DB_HOST=.*/DB_HOST=host.docker.internal/' .env
+            # Update DB_HOST only if not already set (don't override existing working config)
+            if ! grep -q "^DB_HOST=" .env; then
+              echo "DB_HOST=host.docker.internal" >> .env
+            fi
+
+            # Verify MySQL is accessible before proceeding
+            echo "🔍 Checking MySQL connection..."
+            DB_HOST=$(grep "^DB_HOST=" .env | cut -d= -f2)
+            DB_USER=$(grep "^DB_USERNAME=" .env | cut -d= -f2)
+            DB_PASS=$(grep "^DB_PASSWORD=" .env | cut -d= -f2)
+
+            if ! mysqladmin ping -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" --silent 2>/dev/null; then
+              echo "⚠️ WARNING: Cannot connect to MySQL at $DB_HOST"
+              echo "App will start but may not function properly"
+            else
+              echo "✅ MySQL connection successful"
+            fi
 
             # Backup .env file
             echo "💾 Backing up .env file..."

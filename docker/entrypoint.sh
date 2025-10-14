@@ -61,5 +61,5 @@ chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
 
 echo "✅ Laravel application setup completed!"
 
-# Start supervisor
-exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf
+# Start PHP-FPM (supervisor is not needed for separate queue/scheduler containers)
+exec php-fpm
