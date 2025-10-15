@@ -1,3 +1,42 @@
+#!/bin/bash
+# Clear feeds and categories data, then reseed with new categories
+
+echo "🧹 Clearing feeds and categories data..."
+echo "========================================"
+
+# Check if we're in the right directory
+if [ ! -f "artisan" ]; then
+    echo "❌ Not in Laravel project directory. Please run from project root."
+    exit 1
+fi
+
+echo ""
+echo "⚠️  WARNING: This will delete ALL posts and categories!"
+echo "Press Ctrl+C to cancel, or Enter to continue..."
+read
+
+echo ""
+echo "🗑️  Clearing existing data..."
+
+# Clear posts (feeds)
+echo "Deleting all posts..."
+php artisan tinker --execute="
+\App\Models\Post::truncate();
+echo 'Posts cleared successfully';
+"
+
+# Clear categories
+echo "Deleting all categories..."
+php artisan tinker --execute="
+\App\Models\Category::truncate();
+echo 'Categories cleared successfully';
+"
+
+echo ""
+echo "📝 Updating CategorySeeder with new categories..."
+
+# Update the CategorySeeder
+cat > database/seeders/CategorySeeder.php << 'EOF'
 <?php
 
 namespace Database\Seeders;
@@ -92,3 +131,25 @@ class CategorySeeder extends Seeder
         $this->command->info('Categories seeded successfully!');
     }
 }
+EOF
+
+echo "✅ CategorySeeder updated!"
+
+echo ""
+echo "🌱 Seeding new categories..."
+php artisan db:seed --class=CategorySeeder
+
+echo ""
+echo "✅ Data cleared and reseeded successfully!"
+echo ""
+echo "📊 New categories:"
+php artisan tinker --execute="
+\App\Models\Category::all()->each(function(\$cat) {
+    echo \$cat->name . ' (' . \$cat->slug . ')' . PHP_EOL;
+});
+"
+
+echo ""
+echo "🎉 All done! Your database now has:"
+echo "   - All posts cleared"
+echo "   - New categories: men, women, hair, skincare, nails, tattoos, make-up, outfits, wedding, fitness"
