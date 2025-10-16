@@ -68,7 +68,13 @@ class UserController extends Controller
 
         $data = $request->only(['full_name', 'username', 'bio', 'profession', 'interests']);
 
+        // Debug: Log all request data
+        Log::info("Request data: " . json_encode($request->all()));
+        Log::info("Has file profile_picture: " . ($request->hasFile('profile_picture') ? 'true' : 'false'));
+        Log::info("Files in request: " . json_encode(array_keys($request->allFiles())));
+
         if ($request->hasFile('profile_picture')) {
+            Log::info("Profile picture upload started for user: " . $user->id);
             try {
                 // Delete old profile picture (with error handling)
                 if ($user->profile_picture) {
@@ -102,13 +108,32 @@ class UserController extends Controller
 
                 // Store new profile picture using normal Storage::disk('s3')
                 $file = $request->file('profile_picture');
+                Log::info("File details: " . json_encode([
+                    'original_name' => $file->getClientOriginalName(),
+                    'size' => $file->getSize(),
+                    'mime_type' => $file->getMimeType(),
+                    'extension' => $file->getClientOriginalExtension()
+                ]));
+
                 $filename = time() . '_' . \Illuminate\Support\Str::random(10) . '.' . $file->getClientOriginalExtension();
                 $path = $file->storeAs('profiles', $filename, 's3');
+                Log::info("File stored at path: " . $path);
 
-                // Generate the URL using the bucket and region configuration
-                $bucket = config('filesystems.disks.s3.bucket');
-                $region = config('filesystems.disks.s3.region');
-                $data['profile_picture'] = "https://{$bucket}.s3.{$region}.amazonaws.com/{$path}";
+                // Generate the URL using CDN if available, otherwise use direct S3
+                $cdnUrl = config('filesystems.disks.s3.cdn_url');
+                if ($cdnUrl) {
+                    // Ensure CDN URL has protocol
+                    if (!str_starts_with($cdnUrl, 'http://') && !str_starts_with($cdnUrl, 'https://')) {
+                        $cdnUrl = 'https://' . $cdnUrl;
+                    }
+                    $data['profile_picture'] = rtrim($cdnUrl, '/') . '/' . ltrim($path, '/');
+                } else {
+                    // Fallback to direct S3
+                    $bucket = config('filesystems.disks.s3.bucket');
+                    $region = config('filesystems.disks.s3.region');
+                    $data['profile_picture'] = "https://{$bucket}.s3.{$region}.amazonaws.com/{$path}";
+                }
+                Log::info("Generated profile picture URL: " . $data['profile_picture']);
 
             } catch (\Exception $e) {
                 Log::error("Profile picture upload failed: " . $e->getMessage());
