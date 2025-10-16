@@ -54,7 +54,7 @@ class UserController extends Controller
             'username' => 'nullable|string|max:255|unique:users,username,' . $user->id,
             'bio' => 'nullable|string|max:500',
             'profession' => 'nullable|string|max:255',
-            'profile_picture' => 'nullable|image|max:20048',
+            'profile_picture' => 'nullable|image|max:20480',
             'interests' => 'nullable|array',
             'interests.*' => 'string|max:50',
         ]);
