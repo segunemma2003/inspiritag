@@ -67,6 +67,19 @@ Route::get('/debug/s3-config', [DebugController::class, 'checkS3Config']);
 Route::get('/debug/presigned-url', [DebugController::class, 'testPresignedUrl']);
 Route::get('/debug/aws-config', [DebugController::class, 'debugAwsConfig']);
 
+// PHP configuration debug
+Route::get('/debug/php-config', function () {
+    return response()->json([
+        'upload_max_filesize' => ini_get('upload_max_filesize'),
+        'post_max_size' => ini_get('post_max_size'),
+        'max_execution_time' => ini_get('max_execution_time'),
+        'memory_limit' => ini_get('memory_limit'),
+        'max_input_time' => ini_get('max_input_time'),
+        'file_uploads' => ini_get('file_uploads') ? 'enabled' : 'disabled',
+        'max_file_uploads' => ini_get('max_file_uploads'),
+    ]);
+});
+
 
 // Protected routes
 Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
