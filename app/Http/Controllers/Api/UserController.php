@@ -72,6 +72,19 @@ class UserController extends Controller
         Log::info("Request data: " . json_encode($request->all()));
         Log::info("Has file profile_picture: " . ($request->hasFile('profile_picture') ? 'true' : 'false'));
         Log::info("Files in request: " . json_encode(array_keys($request->allFiles())));
+        
+        // Return debug info for testing
+        if ($request->has('debug')) {
+            return response()->json([
+                'success' => true,
+                'debug' => [
+                    'has_file' => $request->hasFile('profile_picture'),
+                    'all_files' => array_keys($request->allFiles()),
+                    'request_data' => $request->all(),
+                    'content_type' => $request->header('Content-Type')
+                ]
+            ]);
+        }
 
         if ($request->hasFile('profile_picture')) {
             Log::info("Profile picture upload started for user: " . $user->id);
