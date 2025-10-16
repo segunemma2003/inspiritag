@@ -40,6 +40,17 @@ Route::post('/test-upload', function () {
     return response()->json(['success' => true, 'message' => 'Test route working']);
 });
 
+// Test file upload route
+Route::post('/test-file-upload', function (Request $request) {
+    return response()->json([
+        'success' => true,
+        'has_file' => $request->hasFile('test_file'),
+        'all_files' => array_keys($request->allFiles()),
+        'request_data' => $request->all(),
+        'content_type' => $request->header('Content-Type')
+    ]);
+});
+
 // Public routes
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/verify-otp', [AuthController::class, 'verifyOtp']);
