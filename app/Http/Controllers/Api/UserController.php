@@ -7,10 +7,10 @@ use App\Models\User;
 use App\Models\Follow;
 use App\Models\Notification;
 use App\Services\FirebaseNotificationService;
-use App\Services\S3Service;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Log;
 
 class UserController extends Controller
 {
@@ -53,7 +53,7 @@ class UserController extends Controller
             'username' => 'nullable|string|max:255|unique:users,username,' . $user->id,
             'bio' => 'nullable|string|max:500',
             'profession' => 'nullable|string|max:255',
-            'profile_picture' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:20048',
+            'profile_picture' => 'nullable|image|max:20048',
             'interests' => 'nullable|array',
             'interests.*' => 'string|max:50',
         ]);
@@ -92,7 +92,7 @@ class UserController extends Controller
                         $oldPath = preg_replace('#^https?://[^/]+/#', '', $oldPath);
 
                         if ($oldPath && !str_contains($oldPath, 'http')) {
-                            S3Service::deleteFile($oldPath);
+                            Storage::disk('s3')->delete($oldPath);
                         }
                     } catch (\Exception $e) {
                         // Log but don't fail - old picture deletion is not critical
@@ -100,10 +100,15 @@ class UserController extends Controller
                     }
                 }
 
-                // Store new profile picture using S3Service
+                // Store new profile picture using normal Storage::disk('s3')
                 $file = $request->file('profile_picture');
-                $uploadResult = S3Service::uploadWithCDN($file, 'profiles');
-                $data['profile_picture'] = $uploadResult['url'];
+                $filename = time() . '_' . \Illuminate\Support\Str::random(10) . '.' . $file->getClientOriginalExtension();
+                $path = $file->storeAs('profiles', $filename, 's3');
+
+                // Generate the URL using the bucket and region configuration
+                $bucket = config('filesystems.disks.s3.bucket');
+                $region = config('filesystems.disks.s3.region');
+                $data['profile_picture'] = "https://{$bucket}.s3.{$region}.amazonaws.com/{$path}";
 
             } catch (\Exception $e) {
                 Log::error("Profile picture upload failed: " . $e->getMessage());
