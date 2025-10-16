@@ -67,9 +67,6 @@ Route::get('/debug/s3-config', [DebugController::class, 'checkS3Config']);
 Route::get('/debug/presigned-url', [DebugController::class, 'testPresignedUrl']);
 Route::get('/debug/aws-config', [DebugController::class, 'debugAwsConfig']);
 
-// Temporary public profile update for testing
-Route::put('/users/profile-debug', [UserController::class, 'updateProfile']);
-Route::post('/users/profile-debug-post', [UserController::class, 'updateProfile']);
 
 // Protected routes
 Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
@@ -81,7 +78,7 @@ Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
     // User routes
     Route::get('/users', [UserController::class, 'index']);
     Route::get('/users/{user}', [UserController::class, 'show']);
-    Route::put('/users/profile', [UserController::class, 'updateProfile']);
+    Route::post('/users/profile', [UserController::class, 'updateProfile']);
     Route::post('/users/{user}/follow', [UserController::class, 'follow']);
     Route::delete('/users/{user}/unfollow', [UserController::class, 'unfollow']);
     Route::get('/users/{user}/followers', [UserController::class, 'followers']);

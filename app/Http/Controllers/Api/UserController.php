@@ -48,12 +48,6 @@ class UserController extends Controller
     {
         $user = $request->user();
 
-        // For testing without auth, create a dummy user
-        if (!$user && $request->has('debug')) {
-            $user = new \App\Models\User();
-            $user->id = 18; // Use the test user ID
-            $user->profile_picture = null;
-        }
 
         $validator = Validator::make($request->all(), [
             'full_name' => 'nullable|string|max:255',
@@ -80,18 +74,6 @@ class UserController extends Controller
         Log::info("Has file profile_picture: " . ($request->hasFile('profile_picture') ? 'true' : 'false'));
         Log::info("Files in request: " . json_encode(array_keys($request->allFiles())));
 
-        // Return debug info for testing
-        if ($request->has('debug')) {
-            return response()->json([
-                'success' => true,
-                'debug' => [
-                    'has_file' => $request->hasFile('profile_picture'),
-                    'all_files' => array_keys($request->allFiles()),
-                    'request_data' => $request->all(),
-                    'content_type' => $request->header('Content-Type')
-                ]
-            ]);
-        }
 
         if ($request->hasFile('profile_picture')) {
             Log::info("Profile picture upload started for user: " . $user->id);
