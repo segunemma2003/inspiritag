@@ -69,6 +69,7 @@ Route::get('/debug/aws-config', [DebugController::class, 'debugAwsConfig']);
 
 // Temporary public profile update for testing
 Route::put('/users/profile-debug', [UserController::class, 'updateProfile']);
+Route::post('/users/profile-debug-post', [UserController::class, 'updateProfile']);
 
 // Protected routes
 Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {

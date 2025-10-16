@@ -47,7 +47,7 @@ class UserController extends Controller
     public function updateProfile(Request $request)
     {
         $user = $request->user();
-        
+
         // For testing without auth, create a dummy user
         if (!$user && $request->has('debug')) {
             $user = new \App\Models\User();
