@@ -16,7 +16,7 @@ return new class extends Migration
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
             $table->foreignId('from_user_id')->nullable()->constrained('users')->onDelete('cascade');
             $table->foreignId('post_id')->nullable()->constrained()->onDelete('cascade');
-            $table->string('type'); // 'like', 'follow', 'new_post', 'booking'
+            $table->string('type'); // 'like', 'follow', 'new_post', 'booking', 'user_tagged'
             $table->string('title');
             $table->text('message');
             $table->json('data')->nullable();

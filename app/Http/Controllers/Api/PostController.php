@@ -7,11 +7,13 @@ use App\Models\Post;
 use App\Models\Tag;
 use App\Models\Like;
 use App\Models\Save;
+use App\Models\Share;
 use App\Models\Notification;
 use App\Models\User;
 use App\Services\FirebaseNotificationService;
 use App\Services\S3Service;
 use App\Services\PresignedUrlService;
+use App\Services\UserTaggingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -147,6 +149,8 @@ class PostController extends Controller
             'category_id' => 'required|exists:categories,id',
             'tags' => 'nullable|array',
             'tags.*' => 'string|max:50',
+            'tagged_users' => 'nullable|array',
+            'tagged_users.*' => 'integer|exists:users,id',
             'location' => 'nullable|string|max:255',
         ]);
 
@@ -188,6 +192,28 @@ class PostController extends Controller
             }
         }
 
+        // Handle user tagging
+        $taggedUsers = [];
+        if ($request->tagged_users && !empty($request->tagged_users)) {
+            $userTaggingService = new UserTaggingService();
+            $tagResult = $userTaggingService->tagUsersInPost($post, $request->tagged_users, $user);
+            if ($tagResult['success']) {
+                $taggedUsers = $tagResult['tagged_users'];
+            }
+        }
+
+        // Also parse user tags from caption (@username)
+        if ($request->caption) {
+            $userTaggingService = new UserTaggingService();
+            $captionUserIds = $userTaggingService->parseUserTagsFromCaption($request->caption);
+            if (!empty($captionUserIds)) {
+                $tagResult = $userTaggingService->tagUsersInPost($post, $captionUserIds, $user);
+                if ($tagResult['success']) {
+                    $taggedUsers = array_merge($taggedUsers, $tagResult['tagged_users']);
+                }
+            }
+        }
+
         // Create notifications for followers using Firebase service
         $followers = $user->followers;
         if ($followers->isNotEmpty()) {
@@ -198,13 +224,13 @@ class PostController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Post created successfully',
-            'data' => $post->load(['user', 'category', 'tags'])
+            'data' => $post->load(['user', 'category', 'tags', 'taggedUsers'])
         ], 201);
     }
 
     public function show(Post $post)
     {
-        $post->load(['user', 'category', 'tags', 'likes', 'saves']);
+        $post->load(['user', 'category', 'tags', 'likes', 'saves', 'shares', 'taggedUsers']);
 
         return response()->json([
             'success' => true,
@@ -288,6 +314,66 @@ class PostController extends Controller
                 'data' => ['saved' => true, 'saves_count' => $post->saves_count]
             ]);
         }
+    }
+
+    public function share(Request $request, Post $post)
+    {
+        $validator = Validator::make($request->all(), [
+            'platform' => 'nullable|string|max:50'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation errors',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        $user = $request->user();
+        $platform = $request->get('platform', 'copy_link');
+
+        // Check if user already shared this post on this platform
+        $existingShare = Share::where('user_id', $user->id)
+            ->where('post_id', $post->id)
+            ->where('platform', $platform)
+            ->first();
+
+        if ($existingShare) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Post already shared on this platform'
+            ], 400);
+        }
+
+        // Create share record
+        Share::create([
+            'user_id' => $user->id,
+            'post_id' => $post->id,
+            'platform' => $platform,
+        ]);
+
+        // Increment shares count
+        $post->increment('shares_count');
+
+        // Send notification to post owner if not the same user
+        if ($post->user_id !== $user->id) {
+            $postOwner = User::find($post->user_id);
+            if ($postOwner && $postOwner->notifications_enabled) {
+                $firebaseService = new FirebaseNotificationService();
+                $firebaseService->sendPostSharedNotification($user, $postOwner, $post, $platform);
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Post shared successfully',
+            'data' => [
+                'shared' => true,
+                'shares_count' => $post->fresh()->shares_count,
+                'platform' => $platform
+            ]
+        ]);
     }
 
     public function destroy(Request $request, Post $post)
@@ -909,6 +995,189 @@ class PostController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to complete chunked upload: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get posts where a user is tagged
+     */
+    public function getTaggedPosts(Request $request)
+    {
+        try {
+            $user = $request->user();
+            $perPage = min($request->get('per_page', 20), 50);
+
+            $userTaggingService = new UserTaggingService();
+            $posts = $userTaggingService->getTaggedPosts($user, $perPage);
+
+            // Add user interaction data
+            if ($posts->count() > 0) {
+                $postIds = $posts->pluck('id');
+                $userLikes = Like::where('user_id', $user->id)
+                    ->whereIn('post_id', $postIds)
+                    ->pluck('post_id')
+                    ->toArray();
+                $userSaves = Save::where('user_id', $user->id)
+                    ->whereIn('post_id', $postIds)
+                    ->pluck('post_id')
+                    ->toArray();
+
+                $posts->getCollection()->transform(function ($post) use ($userLikes, $userSaves) {
+                    $post->is_liked = in_array($post->id, $userLikes);
+                    $post->is_saved = in_array($post->id, $userSaves);
+                    $post->is_tagged = true; // All posts in this list are tagged
+                    return $post;
+                });
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => $posts,
+                'message' => $posts->count() > 0 ? 'Tagged posts retrieved successfully' : 'No tagged posts found'
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error fetching tagged posts: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch tagged posts',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get user tag suggestions for autocomplete
+     */
+    public function getTagSuggestions(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'q' => 'required|string|min:1|max:50',
+            'limit' => 'nullable|integer|min:1|max:20'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation errors',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        try {
+            $query = $request->get('q');
+            $limit = min($request->get('limit', 10), 20);
+
+            $userTaggingService = new UserTaggingService();
+            $suggestions = $userTaggingService->getTagSuggestions($query, $limit);
+
+            return response()->json([
+                'success' => true,
+                'data' => $suggestions
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error fetching tag suggestions: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch tag suggestions',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Tag users in an existing post
+     */
+    public function tagUsers(Request $request, Post $post)
+    {
+        $validator = Validator::make($request->all(), [
+            'user_ids' => 'required|array|min:1|max:10',
+            'user_ids.*' => 'integer|exists:users,id'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation errors',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        try {
+            $user = $request->user();
+            $userTaggingService = new UserTaggingService();
+
+            $result = $userTaggingService->tagUsersInPost($post, $request->user_ids, $user);
+
+            if ($result['success']) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Users tagged successfully',
+                    'data' => [
+                        'tagged_users' => $result['tagged_users'],
+                        'notifications_sent' => count($result['notifications'])
+                    ]
+                ]);
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to tag users',
+                    'error' => $result['error']
+                ], 500);
+            }
+        } catch (\Exception $e) {
+            Log::error('Error tagging users: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to tag users',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Remove user tags from a post
+     */
+    public function untagUsers(Request $request, Post $post)
+    {
+        $validator = Validator::make($request->all(), [
+            'user_ids' => 'required|array|min:1',
+            'user_ids.*' => 'integer|exists:users,id'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation errors',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        try {
+            $userTaggingService = new UserTaggingService();
+            $result = $userTaggingService->untagUsersFromPost($post, $request->user_ids);
+
+            if ($result['success']) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Users untagged successfully',
+                    'data' => [
+                        'untagged_users' => $result['untagged_users']
+                    ]
+                ]);
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to untag users',
+                    'error' => $result['error']
+                ], 500);
+            }
+        } catch (\Exception $e) {
+            Log::error('Error untagging users: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to untag users',
+                'error' => $e->getMessage()
             ], 500);
         }
     }

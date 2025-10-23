@@ -54,6 +54,7 @@ class PerformanceService
                 'following_count' => $user->following()->count(),
                 'likes_received' => $user->posts()->sum('likes_count'),
                 'saves_received' => $user->posts()->sum('saves_count'),
+                'shares_received' => $user->posts()->sum('shares_count'),
             ];
         });
     }

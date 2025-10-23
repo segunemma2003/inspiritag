@@ -540,7 +540,623 @@ All protected endpoints are rate limited to 60 requests per minute per user.
 
 ---
 
-## 12. Notes
+---
+
+## 12. Enhanced Search APIs
+
+### Search Posts
+
+**POST** `/search/posts`
+
+Advanced search for posts with multiple filters.
+
+**Request Body:**
+
+```json
+{
+    "q": "makeup tutorial",
+    "per_page": 20,
+    "category_id": 1,
+    "media_type": "image",
+    "tags": ["makeup", "beauty"],
+    "sort_by": "likes_count",
+    "sort_order": "desc",
+    "date_from": "2024-01-01",
+    "date_to": "2024-12-31"
+}
+```
+
+**Response:**
+
+```json
+{
+    "success": true,
+    "data": {
+        "current_page": 1,
+        "data": [
+            {
+                "id": 1,
+                "user_id": 2,
+                "caption": "New makeup tutorial",
+                "media_url": "https://s3.amazonaws.com/bucket/tutorial.jpg",
+                "media_type": "image",
+                "likes_count": 75,
+                "saves_count": 20,
+                "comments_count": 15,
+                "created_at": "2024-01-04T14:00:00.000000Z",
+                "is_liked": false,
+                "is_saved": true,
+                "user": {
+                    "id": 2,
+                    "name": "Sarah Davis",
+                    "username": "sarahdavis",
+                    "profile_picture": "https://s3.amazonaws.com/bucket/sarah.jpg"
+                },
+                "category": {
+                    "id": 1,
+                    "name": "Makeup",
+                    "color": "#FF6B6B",
+                    "icon": "💄"
+                },
+                "tags": [
+                    {
+                        "id": 1,
+                        "name": "Makeup",
+                        "slug": "makeup"
+                    }
+                ]
+            }
+        ],
+        "per_page": 20,
+        "total": 45
+    },
+    "search_query": "makeup tutorial",
+    "filters_applied": {
+        "category_id": 1,
+        "media_type": "image",
+        "tags": ["makeup", "beauty"],
+        "date_from": "2024-01-01",
+        "date_to": "2024-12-31",
+        "sort_by": "likes_count",
+        "sort_order": "desc"
+    }
+}
+```
+
+### Search Users
+
+**POST** `/search/users`
+
+Advanced search for users with multiple filters.
+
+**Request Body:**
+
+```json
+{
+    "q": "makeup artist",
+    "per_page": 20,
+    "profession": "Makeup Artist",
+    "is_business": true,
+    "interests": ["Makeup", "Beauty"],
+    "sort_by": "created_at",
+    "sort_order": "desc"
+}
+```
+
+**Response:**
+
+```json
+{
+    "success": true,
+    "data": {
+        "current_page": 1,
+        "data": [
+            {
+                "id": 3,
+                "name": "Emma Wilson",
+                "full_name": "Emma Wilson",
+                "username": "emmawilson",
+                "profile_picture": "https://s3.amazonaws.com/bucket/emma.jpg",
+                "bio": "Professional makeup artist",
+                "profession": "Makeup Artist",
+                "is_business": true,
+                "interests": ["Makeup", "Beauty", "Fashion"],
+                "created_at": "2024-01-01T00:00:00.000000Z"
+            }
+        ],
+        "per_page": 20,
+        "total": 12
+    },
+    "search_query": "makeup artist",
+    "filters_applied": {
+        "profession": "Makeup Artist",
+        "is_business": true,
+        "interests": ["Makeup", "Beauty"],
+        "sort_by": "created_at",
+        "sort_order": "desc"
+    }
+}
+```
+
+### Search Followers
+
+**POST** `/search/users/{user_id}/followers`
+
+Search within a user's followers.
+
+**Request Body:**
+
+```json
+{
+    "q": "makeup",
+    "per_page": 20,
+    "profession": "Artist",
+    "is_business": false,
+    "sort_by": "created_at",
+    "sort_order": "desc"
+}
+```
+
+**Response:**
+
+```json
+{
+    "success": true,
+    "data": {
+        "current_page": 1,
+        "data": [
+            {
+                "id": 4,
+                "name": "Lisa Brown",
+                "full_name": "Lisa Brown",
+                "username": "lisabrown",
+                "profile_picture": "https://s3.amazonaws.com/bucket/lisa.jpg",
+                "bio": "Makeup enthusiast",
+                "profession": "Makeup Artist",
+                "is_business": false,
+                "created_at": "2024-01-01T00:00:00.000000Z"
+            }
+        ],
+        "per_page": 20,
+        "total": 8
+    },
+    "user_id": 1,
+    "search_query": "makeup",
+    "filters_applied": {
+        "profession": "Artist",
+        "is_business": false,
+        "sort_by": "created_at",
+        "sort_order": "desc"
+    }
+}
+```
+
+### Search Following
+
+**POST** `/search/users/{user_id}/following`
+
+Search within users that a specific user follows.
+
+**Request Body:**
+
+```json
+{
+    "q": "photographer",
+    "per_page": 20,
+    "profession": "Photographer",
+    "is_business": true,
+    "sort_by": "name",
+    "sort_order": "asc"
+}
+```
+
+**Response:**
+
+```json
+{
+    "success": true,
+    "data": {
+        "current_page": 1,
+        "data": [
+            {
+                "id": 5,
+                "name": "Mike Johnson",
+                "full_name": "Mike Johnson",
+                "username": "mikej",
+                "profile_picture": "https://s3.amazonaws.com/bucket/mike.jpg",
+                "bio": "Professional photographer",
+                "profession": "Photographer",
+                "is_business": true,
+                "created_at": "2024-01-01T00:00:00.000000Z"
+            }
+        ],
+        "per_page": 20,
+        "total": 3
+    },
+    "user_id": 1,
+    "search_query": "photographer",
+    "filters_applied": {
+        "profession": "Photographer",
+        "is_business": true,
+        "sort_by": "name",
+        "sort_order": "asc"
+    }
+}
+```
+
+### Global Search
+
+**POST** `/search/global`
+
+Search across posts, users, and tags simultaneously.
+
+**Request Body:**
+
+```json
+{
+    "q": "beauty",
+    "types": ["posts", "users", "tags"],
+    "per_page": 10
+}
+```
+
+**Response:**
+
+```json
+{
+    "success": true,
+    "data": {
+        "posts": {
+            "data": [
+                {
+                    "id": 1,
+                    "caption": "Beauty tips",
+                    "media_url": "https://s3.amazonaws.com/bucket/beauty.jpg",
+                    "user": {
+                        "id": 2,
+                        "name": "Sarah Davis",
+                        "username": "sarahdavis"
+                    }
+                }
+            ],
+            "total": 1
+        },
+        "users": {
+            "data": [
+                {
+                    "id": 3,
+                    "name": "Emma Wilson",
+                    "username": "emmawilson",
+                    "profession": "Beauty Blogger"
+                }
+            ],
+            "total": 1
+        },
+        "tags": {
+            "data": [
+                {
+                    "id": 1,
+                    "name": "Beauty",
+                    "slug": "beauty",
+                    "usage_count": 150
+                }
+            ],
+            "total": 1
+        }
+    },
+    "search_query": "beauty",
+    "search_types": ["posts", "users", "tags"]
+}
+```
+
+### Get Trending Searches
+
+**GET** `/search/trending`
+
+Get trending tags and popular users.
+
+**Query Parameters:**
+
+-   `limit` (optional): Number of results (max 20, default 10)
+
+**Response:**
+
+```json
+{
+    "success": true,
+    "data": {
+        "trending_tags": [
+            {
+                "id": 1,
+                "name": "Makeup",
+                "slug": "makeup",
+                "usage_count": 500
+            },
+            {
+                "id": 2,
+                "name": "Beauty",
+                "slug": "beauty",
+                "usage_count": 450
+            }
+        ],
+        "popular_users": [
+            {
+                "id": 1,
+                "name": "John Doe",
+                "username": "johndoe",
+                "profile_picture": "https://s3.amazonaws.com/bucket/john.jpg",
+                "followers_count": 5000
+            }
+        ]
+    }
+}
+```
+
+---
+
+## 13. User Tagging System
+
+### Get Tagged Posts
+
+**GET** `/tagged-posts`
+
+Get all posts where the authenticated user is tagged.
+
+**Query Parameters:**
+
+-   `per_page` (optional): Number of posts per page (max 50, default 20)
+
+**Response:**
+
+```json
+{
+    "success": true,
+    "data": {
+        "current_page": 1,
+        "data": [
+            {
+                "id": 1,
+                "user_id": 2,
+                "caption": "Check out this amazing work by @johndoe!",
+                "media_url": "https://s3.amazonaws.com/bucket/tagged_post.jpg",
+                "media_type": "image",
+                "likes_count": 25,
+                "saves_count": 5,
+                "comments_count": 3,
+                "created_at": "2024-01-04T14:00:00.000000Z",
+                "is_liked": false,
+                "is_saved": true,
+                "is_tagged": true,
+                "user": {
+                    "id": 2,
+                    "name": "Sarah Davis",
+                    "username": "sarahdavis",
+                    "profile_picture": "https://s3.amazonaws.com/bucket/sarah.jpg"
+                },
+                "category": {
+                    "id": 1,
+                    "name": "Makeup",
+                    "color": "#FF6B6B",
+                    "icon": "💄"
+                },
+                "tags": [
+                    {
+                        "id": 1,
+                        "name": "Makeup",
+                        "slug": "makeup"
+                    }
+                ]
+            }
+        ],
+        "per_page": 20,
+        "total": 5
+    },
+    "message": "Tagged posts retrieved successfully"
+}
+```
+
+### Get Tag Suggestions
+
+**GET** `/tag-suggestions`
+
+Get user suggestions for tagging (autocomplete functionality).
+
+**Query Parameters:**
+
+-   `q` (required): Search query (min 1, max 50 characters)
+-   `limit` (optional): Number of suggestions (max 20, default 10)
+
+**Response:**
+
+```json
+{
+    "success": true,
+    "data": [
+        {
+            "id": 3,
+            "name": "Emma Wilson",
+            "full_name": "Emma Wilson",
+            "username": "emmawilson",
+            "profile_picture": "https://s3.amazonaws.com/bucket/emma.jpg",
+            "display_name": "Emma Wilson"
+        },
+        {
+            "id": 4,
+            "name": "Mike Johnson",
+            "full_name": "Mike Johnson",
+            "username": "mikej",
+            "profile_picture": "https://s3.amazonaws.com/bucket/mike.jpg",
+            "display_name": "Mike Johnson"
+        }
+    ]
+}
+```
+
+### Tag Users in Post
+
+**POST** `/posts/{post_id}/tag-users`
+
+Tag users in an existing post.
+
+**Request Body:**
+
+```json
+{
+    "user_ids": [3, 4, 5]
+}
+```
+
+**Response:**
+
+```json
+{
+    "success": true,
+    "message": "Users tagged successfully",
+    "data": {
+        "tagged_users": [
+            {
+                "id": 3,
+                "name": "Emma Wilson",
+                "username": "emmawilson"
+            },
+            {
+                "id": 4,
+                "name": "Mike Johnson",
+                "username": "mikej"
+            }
+        ],
+        "notifications_sent": 2
+    }
+}
+```
+
+### Remove User Tags from Post
+
+**DELETE** `/posts/{post_id}/untag-users`
+
+Remove user tags from a post.
+
+**Request Body:**
+
+```json
+{
+    "user_ids": [3, 4]
+}
+```
+
+**Response:**
+
+```json
+{
+    "success": true,
+    "message": "Users untagged successfully",
+    "data": {
+        "untagged_users": [3, 4]
+    }
+}
+```
+
+### Create Post with User Tags
+
+**POST** `/posts`
+
+Create a new post and tag users.
+
+**Request Body:**
+
+```json
+{
+    "caption": "Amazing collaboration with @emmawilson and @mikej!",
+    "media": "file_upload",
+    "category_id": 1,
+    "tags": ["collaboration", "makeup"],
+    "tagged_users": [3, 4],
+    "location": "New York"
+}
+```
+
+**Response:**
+
+```json
+{
+    "success": true,
+    "message": "Post created successfully",
+    "data": {
+        "id": 1,
+        "user_id": 1,
+        "caption": "Amazing collaboration with @emmawilson and @mikej!",
+        "media_url": "https://s3.amazonaws.com/bucket/post.jpg",
+        "media_type": "image",
+        "likes_count": 0,
+        "saves_count": 0,
+        "comments_count": 0,
+        "created_at": "2024-01-04T14:00:00.000000Z",
+        "user": {
+            "id": 1,
+            "name": "John Doe",
+            "username": "johndoe",
+            "profile_picture": "https://s3.amazonaws.com/bucket/john.jpg"
+        },
+        "category": {
+            "id": 1,
+            "name": "Makeup",
+            "color": "#FF6B6B",
+            "icon": "💄"
+        },
+        "tags": [
+            {
+                "id": 1,
+                "name": "collaboration",
+                "slug": "collaboration"
+            }
+        ],
+        "tagged_users": [
+            {
+                "id": 3,
+                "name": "Emma Wilson",
+                "username": "emmawilson"
+            },
+            {
+                "id": 4,
+                "name": "Mike Johnson",
+                "username": "mikej"
+            }
+        ]
+    }
+}
+```
+
+### User Tagging Features
+
+#### **Automatic @username Parsing**
+
+-   When creating posts, the system automatically parses `@username` mentions in captions
+-   Users mentioned with `@username` are automatically tagged
+-   Notifications are sent to all tagged users
+
+#### **Notification System**
+
+-   Tagged users receive push notifications
+-   In-app notifications are created
+-   Notification includes post details and tagged by user info
+
+#### **Tag Management**
+
+-   Tag users in existing posts
+-   Remove user tags from posts
+-   Get posts where you're tagged
+-   User tag suggestions for autocomplete
+
+#### **Validation Rules**
+
+-   Maximum 10 users can be tagged per post
+-   Users cannot tag themselves
+-   Tagged users must exist in the system
+-   Duplicate tags are automatically handled
+
+---
+
+## 14. Notes
 
 -   All timestamps are in UTC format
 -   Image URLs are served from AWS S3
@@ -548,3 +1164,99 @@ All protected endpoints are rate limited to 60 requests per minute per user.
 -   User interaction data (is_liked, is_saved) is included in post responses
 -   Firebase notifications are sent for follow actions
 -   All endpoints support caching for better performance
+-   Search results are cached for 2 minutes for better performance
+-   All search endpoints support advanced filtering and sorting
+-   Global search allows searching across multiple content types simultaneously
+
+---
+
+## 14. Share Functionality
+
+### Share Post
+**POST** `/posts/{post}/share`
+
+Share a post on different platforms.
+
+**Request Body:**
+```json
+{
+  "platform": "instagram"
+}
+```
+
+**Platform Options:**
+- `instagram` - Instagram
+- `facebook` - Facebook
+- `twitter` - Twitter
+- `copy_link` - Copy link (default)
+- `whatsapp` - WhatsApp
+- `telegram` - Telegram
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Post shared successfully",
+  "data": {
+    "shared": true,
+    "shares_count": 15,
+    "platform": "instagram"
+  }
+}
+```
+
+### Delete Post
+**DELETE** `/posts/{post}`
+
+Delete a post (only by post owner).
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Post deleted successfully"
+}
+```
+
+### Updated User Statistics
+**GET** `/users/{user_id}/stats`
+
+User statistics now include shares count.
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "posts_count": 45,
+    "followers_count": 1200,
+    "following_count": 300,
+    "likes_received": 5000,
+    "saves_received": 800,
+    "shares_received": 250
+  }
+}
+```
+
+---
+
+## 15. Haircare Categories
+
+### Available Haircare Categories
+The following haircare categories have been added to the system:
+
+1. **Hair Care** - Hair care tips, products, and tutorials
+2. **Hair Styling** - Hair styling techniques and tutorials
+3. **Hair Color** - Hair coloring techniques and trends
+4. **Hair Treatments** - Hair treatment and repair solutions
+5. **Hair Extensions** - Hair extensions and wigs
+6. **Hair Tools** - Hair styling tools and equipment
+
+### Run Haircare Category Seeder
+To add these categories to your database, run:
+
+```bash
+php artisan db:seed --class=HaircareCategorySeeder
+```
+
+This will create all haircare-related categories with appropriate colors and icons.

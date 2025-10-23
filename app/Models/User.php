@@ -96,6 +96,16 @@ class User extends Authenticatable
         return $this->hasMany(Save::class);
     }
 
+    public function shares()
+    {
+        return $this->hasMany(Share::class);
+    }
+
+    public function taggedPosts()
+    {
+        return $this->belongsToMany(Post::class, 'post_user_tags');
+    }
+
     public function notifications()
     {
         return $this->hasMany(Notification::class);

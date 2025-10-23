@@ -22,6 +22,7 @@ class Post extends Model
         'likes_count',
         'saves_count',
         'comments_count',
+        'shares_count',
     ];
 
     protected function casts(): array
@@ -32,6 +33,7 @@ class Post extends Model
             'likes_count' => 'integer',
             'saves_count' => 'integer',
             'comments_count' => 'integer',
+            'shares_count' => 'integer',
         ];
     }
 
@@ -55,9 +57,19 @@ class Post extends Model
         return $this->hasMany(Save::class);
     }
 
+    public function shares(): HasMany
+    {
+        return $this->hasMany(Share::class);
+    }
+
     public function tags(): BelongsToMany
     {
         return $this->belongsToMany(Tag::class, 'post_tags');
+    }
+
+    public function taggedUsers(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'post_user_tags');
     }
 
     public function isLikedBy(User $user): bool
@@ -68,5 +80,10 @@ class Post extends Model
     public function isSavedBy(User $user): bool
     {
         return $this->saves()->where('user_id', $user->id)->exists();
+    }
+
+    public function isTaggedBy(User $user): bool
+    {
+        return $this->taggedUsers()->where('user_id', $user->id)->exists();
     }
 }

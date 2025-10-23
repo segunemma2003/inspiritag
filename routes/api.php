@@ -191,6 +191,10 @@ Route::post('/working-upload-url', [PostController::class, 'getWorkingUploadUrl'
     Route::get('/my-saved-posts', [PostController::class, 'getSavedPosts']);
     Route::get('/my-liked-posts', [PostController::class, 'getLikedPosts']);
 
+    // User tagging routes
+    Route::get('/tagged-posts', [PostController::class, 'getTaggedPosts']);
+    Route::get('/tag-suggestions', [PostController::class, 'getTagSuggestions']);
+
     // Efficient upload routes for large files
     Route::post('/posts/upload-url', [PostController::class, 'getUploadUrl']);
     Route::post('/posts/create-from-s3', [PostController::class, 'createFromS3']);
@@ -205,9 +209,22 @@ Route::post('/working-upload-url', [PostController::class, 'getWorkingUploadUrl'
     Route::delete('/posts/{post}', [PostController::class, 'destroy']);
     Route::post('/posts/{post}/like', [PostController::class, 'like']);
     Route::post('/posts/{post}/save', [PostController::class, 'save']);
+    Route::post('/posts/{post}/share', [PostController::class, 'share']);
+    Route::post('/posts/{post}/tag-users', [PostController::class, 'tagUsers']);
+    Route::delete('/posts/{post}/untag-users', [PostController::class, 'untagUsers']);
 
     // Search routes
     Route::get('/search', [PostController::class, 'search']);
+
+    // Enhanced search routes
+    Route::prefix('search')->group(function () {
+        Route::post('/posts', [App\Http\Controllers\Api\SearchController::class, 'searchPosts']);
+        Route::post('/users', [App\Http\Controllers\Api\SearchController::class, 'searchUsers']);
+        Route::post('/global', [App\Http\Controllers\Api\SearchController::class, 'globalSearch']);
+        Route::get('/trending', [App\Http\Controllers\Api\SearchController::class, 'getTrendingSearches']);
+        Route::post('/users/{user}/followers', [App\Http\Controllers\Api\SearchController::class, 'searchFollowers']);
+        Route::post('/users/{user}/following', [App\Http\Controllers\Api\SearchController::class, 'searchFollowing']);
+    });
 
     // Business Account routes
     Route::get('/business-accounts', [BusinessAccountController::class, 'index']);
