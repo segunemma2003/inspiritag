@@ -32,15 +32,28 @@ class UserController extends Controller
         ]);
     }
 
-    public function show(User $user)
+    public function show(Request $request, User $user)
     {
+        $authenticatedUser = $request->user();
+        
+        // Load user's public posts
         $user->load(['posts' => function ($query) {
             $query->where('is_public', true)->latest();
         }]);
 
+        // Check if authenticated user is following this user
+        $isFollowed = false;
+        if ($authenticatedUser && $authenticatedUser->id !== $user->id) {
+            $isFollowed = $authenticatedUser->following()->where('following_id', $user->id)->exists();
+        }
+
+        // Add is_followed to user data
+        $userData = $user->toArray();
+        $userData['is_followed'] = $isFollowed;
+
         return response()->json([
             'success' => true,
-            'data' => $user
+            'data' => $userData
         ]);
     }
 

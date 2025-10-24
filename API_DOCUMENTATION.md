@@ -43,6 +43,7 @@ Get detailed profile information for a specific user.
         "is_business": false,
         "is_admin": false,
         "interests": ["Makeup", "Fashion", "Beauty"],
+        "is_followed": true,
         "created_at": "2024-01-01T00:00:00.000000Z",
         "posts": [
             {
@@ -1173,68 +1174,76 @@ Create a new post and tag users.
 ## 14. Share Functionality
 
 ### Share Post
+
 **POST** `/posts/{post}/share`
 
 Share a post on different platforms.
 
 **Request Body:**
+
 ```json
 {
-  "platform": "instagram"
+    "platform": "instagram"
 }
 ```
 
 **Platform Options:**
-- `instagram` - Instagram
-- `facebook` - Facebook
-- `twitter` - Twitter
-- `copy_link` - Copy link (default)
-- `whatsapp` - WhatsApp
-- `telegram` - Telegram
+
+-   `instagram` - Instagram
+-   `facebook` - Facebook
+-   `twitter` - Twitter
+-   `copy_link` - Copy link (default)
+-   `whatsapp` - WhatsApp
+-   `telegram` - Telegram
 
 **Response:**
+
 ```json
 {
-  "success": true,
-  "message": "Post shared successfully",
-  "data": {
-    "shared": true,
-    "shares_count": 15,
-    "platform": "instagram"
-  }
+    "success": true,
+    "message": "Post shared successfully",
+    "data": {
+        "shared": true,
+        "shares_count": 15,
+        "platform": "instagram"
+    }
 }
 ```
 
 ### Delete Post
+
 **DELETE** `/posts/{post}`
 
 Delete a post (only by post owner).
 
 **Response:**
+
 ```json
 {
-  "success": true,
-  "message": "Post deleted successfully"
+    "success": true,
+    "message": "Post deleted successfully"
 }
 ```
 
 ### Updated User Statistics
+
 **GET** `/users/{user_id}/stats`
 
 User statistics now include shares count.
 
 **Response:**
+
 ```json
 {
-  "success": true,
-  "data": {
-    "posts_count": 45,
-    "followers_count": 1200,
-    "following_count": 300,
-    "likes_received": 5000,
-    "saves_received": 800,
-    "shares_received": 250
-  }
+    "success": true,
+    "data": {
+        "posts_count": 45,
+        "followers_count": 1200,
+        "following_count": 300,
+        "likes_received": 5000,
+        "saves_received": 800,
+        "shares_received": 250
+    }
 }
 ```
 
@@ -1243,6 +1252,7 @@ User statistics now include shares count.
 ## 15. Haircare Categories
 
 ### Available Haircare Categories
+
 The following haircare categories have been added to the system:
 
 1. **Hair Care** - Hair care tips, products, and tutorials
@@ -1253,6 +1263,7 @@ The following haircare categories have been added to the system:
 6. **Hair Tools** - Hair styling tools and equipment
 
 ### Run Haircare Category Seeder
+
 To add these categories to your database, run:
 
 ```bash

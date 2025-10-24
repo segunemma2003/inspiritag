@@ -189,6 +189,7 @@ Authorization: Bearer 1|abc123def456...
         "profile_picture": "https://s3.amazonaws.com/bucket/jane.jpg",
         "profession": "Fashion Designer",
         "is_business": true,
+        "is_followed": false,
         "interests": ["Fashion", "Design", "Beauty"],
         "followers_count": 500,
         "following_count": 200,
