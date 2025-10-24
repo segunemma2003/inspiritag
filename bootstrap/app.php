@@ -21,21 +21,4 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [
             \Illuminate\Http\Middleware\HandleCors::class,
         ]);
-
-        // Configure authentication middleware
-        $middleware->alias([
-            'auth' => \App\Http\Middleware\Authenticate::class,
-        ]);
-    })
-    ->withExceptions(function (Exceptions $exceptions): void {
-        // Handle authentication exceptions for API routes
-        $exceptions->render(function (Illuminate\Auth\AuthenticationException $e, $request) {
-            if ($request->is('api/*')) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Unauthenticated',
-                    'error' => 'Authentication required'
-                ], 401);
-            }
-        });
     })->create();
