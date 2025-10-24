@@ -271,9 +271,25 @@ class UserController extends Controller
         ]);
     }
 
-    public function followers(User $user)
+    public function followers(Request $request, User $user)
     {
+        $authenticatedUser = $request->user();
         $followers = $user->followers()->paginate(20);
+
+        // Add is_followed status for authenticated user
+        if ($authenticatedUser) {
+            $followerIds = $followers->pluck('id');
+            $followedIds = $authenticatedUser->following()
+                ->whereIn('following_id', $followerIds)
+                ->pluck('following_id')
+                ->toArray();
+
+            // Add is_followed to each follower
+            $followers->getCollection()->transform(function ($follower) use ($followedIds) {
+                $follower->is_followed = in_array($follower->id, $followedIds);
+                return $follower;
+            });
+        }
 
         return response()->json([
             'success' => true,
@@ -281,9 +297,25 @@ class UserController extends Controller
         ]);
     }
 
-    public function following(User $user)
+    public function following(Request $request, User $user)
     {
+        $authenticatedUser = $request->user();
         $following = $user->following()->paginate(20);
+
+        // Add is_followed status for authenticated user
+        if ($authenticatedUser) {
+            $followingIds = $following->pluck('id');
+            $followedIds = $authenticatedUser->following()
+                ->whereIn('following_id', $followingIds)
+                ->pluck('following_id')
+                ->toArray();
+
+            // Add is_followed to each user being followed
+            $following->getCollection()->transform(function ($followedUser) use ($followedIds) {
+                $followedUser->is_followed = in_array($followedUser->id, $followedIds);
+                return $followedUser;
+            });
+        }
 
         return response()->json([
             'success' => true,
