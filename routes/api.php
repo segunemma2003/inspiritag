@@ -213,6 +213,8 @@ Route::post('/working-upload-url', [PostController::class, 'getWorkingUploadUrl'
     Route::post('/posts/{post}/share', [PostController::class, 'share']);
     Route::post('/posts/{post}/tag-users', [PostController::class, 'tagUsers']);
     Route::delete('/posts/{post}/untag-users', [PostController::class, 'untagUsers']);
+    Route::get('/posts/{post}/likes', [PostController::class, 'getPostLikes']);
+    Route::get('/posts/{post}/saves', [PostController::class, 'getPostSaves']);
 
     // Search routes
     Route::get('/search', [PostController::class, 'search']);

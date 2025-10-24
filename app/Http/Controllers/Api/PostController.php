@@ -1181,4 +1181,84 @@ class PostController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Get users who liked a specific post
+     */
+    public function getPostLikes(Request $request, Post $post)
+    {
+        try {
+            $perPage = min($request->get('per_page', 20), 50);
+            
+            // Get users who liked this post
+            $likes = $post->likes()
+                ->with(['user:id,name,full_name,username,profile_picture,bio,profession,is_business'])
+                ->orderBy('created_at', 'desc')
+                ->paginate($perPage);
+
+            // Transform the data to include user information
+            $likes->getCollection()->transform(function ($like) {
+                return [
+                    'id' => $like->id,
+                    'user_id' => $like->user_id,
+                    'post_id' => $like->post_id,
+                    'created_at' => $like->created_at,
+                    'user' => $like->user
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'data' => $likes
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error("Failed to get post likes: " . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to get post likes',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get users who saved a specific post
+     */
+    public function getPostSaves(Request $request, Post $post)
+    {
+        try {
+            $perPage = min($request->get('per_page', 20), 50);
+            
+            // Get users who saved this post
+            $saves = $post->saves()
+                ->with(['user:id,name,full_name,username,profile_picture,bio,profession,is_business'])
+                ->orderBy('created_at', 'desc')
+                ->paginate($perPage);
+
+            // Transform the data to include user information
+            $saves->getCollection()->transform(function ($save) {
+                return [
+                    'id' => $save->id,
+                    'user_id' => $save->user_id,
+                    'post_id' => $save->post_id,
+                    'created_at' => $save->created_at,
+                    'user' => $save->user
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'data' => $saves
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error("Failed to get post saves: " . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to get post saves',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
 }
