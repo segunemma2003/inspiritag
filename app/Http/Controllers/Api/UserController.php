@@ -35,7 +35,7 @@ class UserController extends Controller
     public function show(Request $request, User $user)
     {
         $authenticatedUser = $request->user();
-        
+
         // Load user's public posts
         $user->load(['posts' => function ($query) {
             $query->where('is_public', true)->latest();
@@ -60,7 +60,7 @@ class UserController extends Controller
     public function posts(Request $request, User $user)
     {
         $perPage = min($request->get('per_page', 20), 50);
-        
+
         // Get user's public posts with pagination
         $posts = $user->posts()
             ->where('is_public', true)
@@ -72,19 +72,19 @@ class UserController extends Controller
         $authenticatedUser = $request->user();
         if ($authenticatedUser) {
             $postIds = $posts->pluck('id');
-            
+
             // Get user's likes for these posts
             $likedPostIds = $authenticatedUser->likes()
                 ->whereIn('post_id', $postIds)
                 ->pluck('post_id')
                 ->toArray();
-            
+
             // Get user's saves for these posts
             $savedPostIds = $authenticatedUser->saves()
                 ->whereIn('post_id', $postIds)
                 ->pluck('post_id')
                 ->toArray();
-            
+
             // Add interaction status to each post
             $posts->getCollection()->transform(function ($post) use ($likedPostIds, $savedPostIds) {
                 $post->is_liked = in_array($post->id, $likedPostIds);
