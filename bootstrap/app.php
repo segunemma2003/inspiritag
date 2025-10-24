@@ -21,7 +21,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [
             \Illuminate\Http\Middleware\HandleCors::class,
         ]);
-        
+
         // Configure authentication middleware
         $middleware->alias([
             'auth' => \App\Http\Middleware\Authenticate::class,

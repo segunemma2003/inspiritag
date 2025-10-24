@@ -26,8 +26,21 @@ class Authenticate extends Middleware
      */
     public function handle($request, Closure $next, ...$guards)
     {
-        if ($this->authenticate($request, $guards)) {
-            return $next($request);
+        try {
+            if ($this->authenticate($request, $guards)) {
+                return $next($request);
+            }
+        } catch (\Illuminate\Auth\AuthenticationException $e) {
+            // For API routes, return JSON response
+            if ($request->is('api/*')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthenticated',
+                    'error' => 'Authentication required'
+                ], 401);
+            }
+            
+            throw $e;
         }
 
         // For API routes, return JSON response
