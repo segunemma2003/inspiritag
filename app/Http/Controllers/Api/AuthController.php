@@ -390,10 +390,10 @@ class AuthController extends Controller
     public function me(Request $request)
     {
         $user = $request->user();
-        
+
         // Load user relationships
         $user->load(['followers', 'following', 'posts', 'devices']);
-        
+
         // Get user statistics
         $stats = [
             'posts_count' => $user->posts()->count(),
@@ -404,27 +404,27 @@ class AuthController extends Controller
             'shares_received' => $user->posts()->sum('shares_count'),
             'comments_received' => $user->posts()->sum('comments_count'),
         ];
-        
+
         // Get recent posts (last 5)
         $recentPosts = $user->posts()
             ->where('is_public', true)
             ->orderBy('created_at', 'desc')
             ->limit(5)
             ->get(['id', 'caption', 'media_url', 'media_type', 'likes_count', 'saves_count', 'shares_count', 'comments_count', 'created_at']);
-        
+
         // Get user's devices
         $devices = $user->devices()
             ->where('is_active', true)
             ->get(['id', 'device_type', 'device_name', 'app_version', 'os_version', 'last_used_at']);
-        
+
         // Get unread notifications count
         $unreadNotificationsCount = $user->notifications()
             ->where('is_read', false)
             ->count();
-        
+
         // Get user's interests/tags
         $userInterests = $user->interests ?? [];
-        
+
         // Get user's business information if applicable
         $businessInfo = null;
         if ($user->is_business) {
@@ -437,7 +437,7 @@ class AuthController extends Controller
                 'business_address' => $user->business_address,
             ];
         }
-        
+
         return response()->json([
             'success' => true,
             'data' => [

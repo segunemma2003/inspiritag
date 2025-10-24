@@ -17,10 +17,10 @@ class Authenticate extends Middleware
         if ($request->is('api/*')) {
             return null;
         }
-        
+
         return route('login');
     }
-    
+
     /**
      * Handle an incoming request.
      */
@@ -39,7 +39,7 @@ class Authenticate extends Middleware
                     'error' => 'Authentication required'
                 ], 401);
             }
-            
+
             throw $e;
         }
 
