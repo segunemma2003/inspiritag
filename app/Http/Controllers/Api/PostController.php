@@ -1189,7 +1189,7 @@ class PostController extends Controller
     {
         try {
             $perPage = min($request->get('per_page', 20), 50);
-            
+
             // Get users who liked this post
             $likes = $post->likes()
                 ->with(['user:id,name,full_name,username,profile_picture,bio,profession,is_business'])
@@ -1229,7 +1229,7 @@ class PostController extends Controller
     {
         try {
             $perPage = min($request->get('per_page', 20), 50);
-            
+
             // Get users who saved this post
             $saves = $post->saves()
                 ->with(['user:id,name,full_name,username,profile_picture,bio,profession,is_business'])
