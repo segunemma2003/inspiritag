@@ -57,6 +57,48 @@ class UserController extends Controller
         ]);
     }
 
+    public function posts(Request $request, User $user)
+    {
+        $perPage = min($request->get('per_page', 20), 50);
+        
+        // Get user's public posts with pagination
+        $posts = $user->posts()
+            ->where('is_public', true)
+            ->with(['user:id,name,full_name,username,profile_picture', 'category:id,name,color,icon', 'tags:id,name,slug'])
+            ->orderBy('created_at', 'desc')
+            ->paginate($perPage);
+
+        // Add interaction status for authenticated user
+        $authenticatedUser = $request->user();
+        if ($authenticatedUser) {
+            $postIds = $posts->pluck('id');
+            
+            // Get user's likes for these posts
+            $likedPostIds = $authenticatedUser->likes()
+                ->whereIn('post_id', $postIds)
+                ->pluck('post_id')
+                ->toArray();
+            
+            // Get user's saves for these posts
+            $savedPostIds = $authenticatedUser->saves()
+                ->whereIn('post_id', $postIds)
+                ->pluck('post_id')
+                ->toArray();
+            
+            // Add interaction status to each post
+            $posts->getCollection()->transform(function ($post) use ($likedPostIds, $savedPostIds) {
+                $post->is_liked = in_array($post->id, $likedPostIds);
+                $post->is_saved = in_array($post->id, $savedPostIds);
+                return $post;
+            });
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $posts
+        ]);
+    }
+
     public function updateProfile(Request $request)
     {
         $user = $request->user();

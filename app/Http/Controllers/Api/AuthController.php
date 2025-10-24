@@ -389,10 +389,85 @@ class AuthController extends Controller
 
     public function me(Request $request)
     {
+        $user = $request->user();
+        
+        // Load user relationships
+        $user->load(['followers', 'following', 'posts', 'devices']);
+        
+        // Get user statistics
+        $stats = [
+            'posts_count' => $user->posts()->count(),
+            'followers_count' => $user->followers()->count(),
+            'following_count' => $user->following()->count(),
+            'likes_received' => $user->posts()->sum('likes_count'),
+            'saves_received' => $user->posts()->sum('saves_count'),
+            'shares_received' => $user->posts()->sum('shares_count'),
+            'comments_received' => $user->posts()->sum('comments_count'),
+        ];
+        
+        // Get recent posts (last 5)
+        $recentPosts = $user->posts()
+            ->where('is_public', true)
+            ->orderBy('created_at', 'desc')
+            ->limit(5)
+            ->get(['id', 'caption', 'media_url', 'media_type', 'likes_count', 'saves_count', 'shares_count', 'comments_count', 'created_at']);
+        
+        // Get user's devices
+        $devices = $user->devices()
+            ->where('is_active', true)
+            ->get(['id', 'device_type', 'device_name', 'app_version', 'os_version', 'last_used_at']);
+        
+        // Get unread notifications count
+        $unreadNotificationsCount = $user->notifications()
+            ->where('is_read', false)
+            ->count();
+        
+        // Get user's interests/tags
+        $userInterests = $user->interests ?? [];
+        
+        // Get user's business information if applicable
+        $businessInfo = null;
+        if ($user->is_business) {
+            $businessInfo = [
+                'profession' => $user->profession,
+                'business_verified' => $user->business_verified ?? false,
+                'business_category' => $user->business_category,
+                'business_website' => $user->business_website,
+                'business_phone' => $user->business_phone,
+                'business_address' => $user->business_address,
+            ];
+        }
+        
         return response()->json([
             'success' => true,
             'data' => [
-                'user' => $request->user()
+                'user' => [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'full_name' => $user->full_name,
+                    'username' => $user->username,
+                    'email' => $user->email,
+                    'bio' => $user->bio,
+                    'profile_picture' => $user->profile_picture,
+                    'profession' => $user->profession,
+                    'is_business' => $user->is_business,
+                    'is_admin' => $user->is_admin,
+                    'interests' => $userInterests,
+                    'location' => $user->location,
+                    'website' => $user->website,
+                    'phone' => $user->phone,
+                    'date_of_birth' => $user->date_of_birth,
+                    'gender' => $user->gender,
+                    'notifications_enabled' => $user->notifications_enabled,
+                    'email_verified_at' => $user->email_verified_at,
+                    'created_at' => $user->created_at,
+                    'updated_at' => $user->updated_at,
+                ],
+                'statistics' => $stats,
+                'recent_posts' => $recentPosts,
+                'devices' => $devices,
+                'unread_notifications_count' => $unreadNotificationsCount,
+                'business_info' => $businessInfo,
             ]
         ]);
     }

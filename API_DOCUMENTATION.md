@@ -20,6 +20,78 @@ Authorization: Bearer your_token_here
 
 ## 1. User Profile Details
 
+### Get Current User Profile
+
+**GET** `/me`
+
+Get comprehensive information about the authenticated user including statistics, recent posts, and account details.
+
+**Response:**
+
+```json
+{
+    "success": true,
+    "data": {
+        "user": {
+            "id": 1,
+            "name": "John Doe",
+            "full_name": "John Doe",
+            "username": "johndoe",
+            "email": "john@example.com",
+            "bio": "Beauty enthusiast and makeup artist",
+            "profile_picture": "https://s3.amazonaws.com/bucket/profile.jpg",
+            "profession": "Makeup Artist",
+            "is_business": false,
+            "is_admin": false,
+            "interests": ["Makeup", "Fashion", "Beauty"],
+            "location": "New York, NY",
+            "website": "https://johndoe.com",
+            "phone": "+1234567890",
+            "date_of_birth": "1990-01-01",
+            "gender": "male",
+            "notifications_enabled": true,
+            "email_verified_at": "2024-01-01T00:00:00.000000Z",
+            "created_at": "2024-01-01T00:00:00.000000Z",
+            "updated_at": "2024-01-05T10:00:00.000000Z"
+        },
+        "statistics": {
+            "posts_count": 45,
+            "followers_count": 1200,
+            "following_count": 300,
+            "likes_received": 5000,
+            "saves_received": 800,
+            "shares_received": 250,
+            "comments_received": 1200
+        },
+        "recent_posts": [
+            {
+                "id": 1,
+                "caption": "New makeup look!",
+                "media_url": "https://s3.amazonaws.com/bucket/post1.jpg",
+                "media_type": "image",
+                "likes_count": 25,
+                "saves_count": 5,
+                "shares_count": 2,
+                "comments_count": 3,
+                "created_at": "2024-01-05T10:00:00.000000Z"
+            }
+        ],
+        "devices": [
+            {
+                "id": 1,
+                "device_type": "android",
+                "device_name": "Samsung Galaxy S21",
+                "app_version": "1.0.0",
+                "os_version": "Android 12",
+                "last_used_at": "2024-01-05T10:00:00.000000Z"
+            }
+        ],
+        "unread_notifications_count": 5,
+        "business_info": null
+    }
+}
+```
+
 ### Get User Profile by ID
 
 **GET** `/users/{user_id}`

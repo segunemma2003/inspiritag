@@ -91,6 +91,7 @@ Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
     // User routes
     Route::get('/users', [UserController::class, 'index']);
     Route::get('/users/{user}', [UserController::class, 'show']);
+    Route::get('/users/{user}/posts', [UserController::class, 'posts']);
     Route::post('/users/profile', [UserController::class, 'updateProfile']);
     Route::post('/users/{user}/follow', [UserController::class, 'follow']);
     Route::delete('/users/{user}/unfollow', [UserController::class, 'unfollow']);
