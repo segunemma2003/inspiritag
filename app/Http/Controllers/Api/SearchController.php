@@ -61,6 +61,11 @@ class SearchController extends Controller
                     $q->where('caption', 'like', "%{$query}%")
                       ->orWhereHas('tags', function ($tagQuery) use ($query) {
                           $tagQuery->where('name', 'like', "%{$query}%");
+                      })
+                      ->orWhereHas('user', function ($userQuery) use ($query) {
+                          $userQuery->where('username', 'like', "%{$query}%")
+                                   ->orWhere('name', 'like', "%{$query}%")
+                                   ->orWhere('full_name', 'like', "%{$query}%");
                       });
                 });
 
@@ -386,6 +391,11 @@ class SearchController extends Controller
                     $q->where('caption', 'like', "%{$query}%")
                       ->orWhereHas('tags', function ($tagQuery) use ($query) {
                           $tagQuery->where('name', 'like', "%{$query}%");
+                      })
+                      ->orWhereHas('user', function ($userQuery) use ($query) {
+                          $userQuery->where('username', 'like', "%{$query}%")
+                                   ->orWhere('name', 'like', "%{$query}%")
+                                   ->orWhere('full_name', 'like', "%{$query}%");
                       });
                 })
                 ->orderBy('created_at', 'desc')

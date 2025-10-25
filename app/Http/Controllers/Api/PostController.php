@@ -80,9 +80,16 @@ class PostController extends Controller
                 $query->where('media_type', $mediaType);
             }
 
-            // Search in caption
+            // Search in caption and creator
             if (!empty($search)) {
-                $query->where('caption', 'like', '%' . $search . '%');
+                $query->where(function ($q) use ($search) {
+                    $q->where('caption', 'like', '%' . $search . '%')
+                      ->orWhereHas('user', function ($userQuery) use ($search) {
+                          $userQuery->where('username', 'like', '%' . $search . '%')
+                                   ->orWhere('name', 'like', '%' . $search . '%')
+                                   ->orWhere('full_name', 'like', '%' . $search . '%');
+                      });
+                });
             }
 
             // Filter by tags
