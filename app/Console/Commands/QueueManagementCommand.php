@@ -70,13 +70,13 @@ class QueueManagementCommand extends Command
             $queue = $this->option('queue');
             $this->line("   Queue: {$queue}");
 
-            // Check if queue is running
+            
             $this->checkQueueRunning();
 
-            // Show queue sizes
+            
             $this->showQueueSizes();
 
-            // Show failed jobs
+            
             $this->showFailedJobs();
 
         } catch (\Exception $e) {
@@ -92,7 +92,7 @@ class QueueManagementCommand extends Command
     private function checkQueueRunning()
     {
         try {
-            // Check if queue worker is running
+            
             $processes = shell_exec('ps aux | grep "queue:work" | grep -v grep');
 
             if ($processes) {
@@ -116,7 +116,7 @@ class QueueManagementCommand extends Command
         try {
             $redis = Redis::connection();
 
-            // Get queue sizes
+            
             $queues = ['default', 'notifications', 'high', 'low'];
 
             $this->line("   Queue Sizes:");
@@ -170,14 +170,14 @@ class QueueManagementCommand extends Command
             $redis = Redis::connection();
 
             if ($queue === 'all') {
-                // Clear all queues
+                
                 $queues = ['default', 'notifications', 'high', 'low'];
                 foreach ($queues as $q) {
                     $redis->del("queues:{$q}");
                 }
                 $this->line("   Status: ✅ All queues cleared");
             } else {
-                // Clear specific queue
+                
                 $redis->del("queues:{$queue}");
                 $this->line("   Status: ✅ Queue '{$queue}' cleared");
             }
@@ -201,18 +201,18 @@ class QueueManagementCommand extends Command
 
             $this->line("   Queue Metrics:");
 
-            // Get queue sizes
+            
             $queues = ['default', 'notifications', 'high', 'low'];
             foreach ($queues as $queue) {
                 $size = $redis->llen("queues:{$queue}");
                 $this->line("     {$queue}: {$size} jobs");
             }
 
-            // Get failed jobs
+            
             $failedCount = $redis->llen('queues:failed');
             $this->line("     failed: {$failedCount} jobs");
 
-            // Get queue info
+            
             $info = $redis->info();
             $this->line("   Redis Info:");
             $this->line("     Connected Clients: " . ($info['connected_clients'] ?? 0));
@@ -246,7 +246,7 @@ class QueueManagementCommand extends Command
             $this->line("     Total Commands: " . ($info['total_commands_processed'] ?? 0));
             $this->line("     Commands/sec: " . ($info['instantaneous_ops_per_sec'] ?? 0));
 
-            // Queue specific stats
+            
             $this->line("   Queue Statistics:");
             $queues = ['default', 'notifications', 'high', 'low'];
             foreach ($queues as $queue) {
@@ -272,10 +272,10 @@ class QueueManagementCommand extends Command
         $this->info('🧪 Testing Queue');
 
         try {
-            // Test notification job
+            
             $this->line("   Testing notification job...");
 
-            $testUserId = 1; // Use a test user ID
+            $testUserId = 1; 
             $title = 'Test Notification';
             $body = 'This is a test notification from the queue system';
             $data = ['test' => true];

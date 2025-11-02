@@ -105,7 +105,7 @@ class FirebaseNotificationService
      */
     public function sendToUser(User $user, string $title, string $body, array $data = [])
     {
-        // Store notification in database
+        
         $notification = $this->storeNotification($user, $title, $body, $data);
 
         $deviceTokens = $user->devices()->where('is_active', true)->pluck('device_token')->toArray();
@@ -123,7 +123,7 @@ class FirebaseNotificationService
      */
     public function sendToUsers(array $userIds, string $title, string $body, array $data = [])
     {
-        // Store notifications in database for each user
+        
         $notifications = [];
         foreach ($userIds as $userId) {
             $user = User::find($userId);
@@ -184,7 +184,7 @@ class FirebaseNotificationService
     public function sendPostLikedNotification(User $postAuthor, User $liker, Post $post)
     {
         if ($postAuthor->id === $liker->id) {
-            return false; // Don't notify if user liked their own post
+            return false; 
         }
 
         $title = "{$liker->name} liked your post";
@@ -213,7 +213,7 @@ class FirebaseNotificationService
     public function sendPostSavedNotification(User $postAuthor, User $saver, Post $post)
     {
         if ($postAuthor->id === $saver->id) {
-            return false; // Don't notify if user saved their own post
+            return false; 
         }
 
         $title = "{$saver->name} saved your post";
@@ -265,7 +265,7 @@ class FirebaseNotificationService
     public function sendProfileVisitNotification(User $profileOwner, User $visitor)
     {
         if ($profileOwner->id === $visitor->id) {
-            return false; // Don't notify if user visited their own profile
+            return false; 
         }
 
         $title = "{$visitor->name} visited your profile";
@@ -363,7 +363,7 @@ class FirebaseNotificationService
                 'post_id' => $data['post_id'] ?? null,
                 'type' => $data['type'] ?? 'general',
                 'title' => $title,
-                'message' => $body, // Using 'message' field instead of 'body'
+                'message' => $body, 
                 'data' => $data,
                 'is_read' => false,
             ]);

@@ -38,7 +38,7 @@ class BusinessAccountController extends Controller
     {
         $user = $request->user();
 
-        // Check if user already has a business account
+        
         if ($user->businessAccount) {
             return response()->json([
                 'success' => false,
@@ -99,7 +99,7 @@ class BusinessAccountController extends Controller
             'services' => $request->services,
         ]);
 
-        // Update user to business account
+        
         $user->update(['is_business' => true]);
 
         return response()->json([
@@ -234,7 +234,7 @@ class BusinessAccountController extends Controller
             'status' => 'pending',
         ]);
 
-        // Send notification to business owner
+        
         $businessOwner = $businessAccount->user;
         $customer = $request->user();
         $firebaseService = new FirebaseNotificationService();

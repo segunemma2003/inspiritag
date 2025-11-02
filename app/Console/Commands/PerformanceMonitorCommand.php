@@ -35,19 +35,19 @@ class PerformanceMonitorCommand extends Command
         $this->info('🔍 Performance Monitor - Inspirtag API');
         $this->line('');
 
-        // Database Performance
+        
         $this->checkDatabasePerformance();
 
-        // Cache Performance
+        
         $this->checkCachePerformance();
 
-        // System Metrics
+        
         $this->checkSystemMetrics();
 
-        // User Activity
+        
         $this->checkUserActivity();
 
-        // Content Metrics
+        
         $this->checkContentMetrics();
 
         if ($this->option('detailed')) {
@@ -66,21 +66,21 @@ class PerformanceMonitorCommand extends Command
         $this->info('📊 Database Performance');
 
         try {
-            // Test database connection
+            
             $start = microtime(true);
             DB::select('SELECT 1');
             $connectionTime = round((microtime(true) - $start) * 1000, 2);
 
             $this->line("   Connection Time: {$connectionTime}ms");
 
-            // Check table sizes
+            
             $tables = ['users', 'posts', 'notifications', 'likes', 'saves', 'follows'];
             foreach ($tables as $table) {
                 $count = DB::table($table)->count();
                 $this->line("   {$table}: {$count} records");
             }
 
-            // Check slow queries (if available)
+            
             $this->line("   Status: ✅ Database healthy");
 
         } catch (\Exception $e) {
@@ -98,7 +98,7 @@ class PerformanceMonitorCommand extends Command
         $this->info('💾 Cache Performance');
 
         try {
-            // Test cache connection
+            
             $testKey = 'performance_test_' . time();
             $testValue = 'test_value';
 
@@ -115,7 +115,7 @@ class PerformanceMonitorCommand extends Command
             $this->line("   Cache Write: {$putTime}ms");
             $this->line("   Cache Read: {$getTime}ms");
 
-            // Check cache hit rates for key metrics
+            
             $this->checkCacheHitRates();
 
             $this->line("   Status: ✅ Cache healthy");
@@ -157,7 +157,7 @@ class PerformanceMonitorCommand extends Command
     {
         $this->info('⚙️  System Metrics');
 
-        // Memory usage
+        
         $memoryUsage = memory_get_usage(true);
         $memoryPeak = memory_get_peak_usage(true);
         $memoryLimit = ini_get('memory_limit');
@@ -166,10 +166,10 @@ class PerformanceMonitorCommand extends Command
         $this->line("   Memory Peak: " . $this->formatBytes($memoryPeak));
         $this->line("   Memory Limit: {$memoryLimit}");
 
-        // PHP version
+        
         $this->line("   PHP Version: " . PHP_VERSION);
 
-        // Laravel version
+        
         $this->line("   Laravel Version: " . app()->version());
 
         $this->line('');
@@ -183,19 +183,19 @@ class PerformanceMonitorCommand extends Command
         $this->info('👥 User Activity');
 
         try {
-            // Active users (last 24 hours)
+            
             $activeUsers = User::where('last_seen', '>=', now()->subDay())->count();
             $this->line("   Active Users (24h): {$activeUsers}");
 
-            // Total users
+            
             $totalUsers = User::count();
             $this->line("   Total Users: {$totalUsers}");
 
-            // Business accounts
+            
             $businessAccounts = User::where('is_business', true)->count();
             $this->line("   Business Accounts: {$businessAccounts}");
 
-            // Admin users
+            
             $adminUsers = User::where('is_admin', true)->count();
             $this->line("   Admin Users: {$adminUsers}");
 
@@ -214,27 +214,27 @@ class PerformanceMonitorCommand extends Command
         $this->info('📝 Content Metrics');
 
         try {
-            // Total posts
+            
             $totalPosts = Post::count();
             $this->line("   Total Posts: {$totalPosts}");
 
-            // Posts today
+            
             $postsToday = Post::whereDate('created_at', today())->count();
             $this->line("   Posts Today: {$postsToday}");
 
-            // Public posts
+            
             $publicPosts = Post::where('is_public', true)->count();
             $this->line("   Public Posts: {$publicPosts}");
 
-            // Total likes
+            
             $totalLikes = DB::table('likes')->count();
             $this->line("   Total Likes: {$totalLikes}");
 
-            // Total saves
+            
             $totalSaves = DB::table('saves')->count();
             $this->line("   Total Saves: {$totalSaves}");
 
-            // Unread notifications
+            
             $unreadNotifications = Notification::where('is_read', false)->count();
             $this->line("   Unread Notifications: {$unreadNotifications}");
 
@@ -252,20 +252,20 @@ class PerformanceMonitorCommand extends Command
     {
         $this->info('📈 Detailed Performance Metrics');
 
-        // Database query performance
+        
         $this->line('   Database Queries:');
         $this->line('     - User feed queries: Optimized with indexes');
         $this->line('     - Post queries: Eager loading implemented');
         $this->line('     - Notification queries: Cached results');
 
-        // Cache performance
+        
         $this->line('   Cache Performance:');
         $this->line('     - User feeds: 2 minute TTL');
         $this->line('     - User stats: 5 minute TTL');
         $this->line('     - Notifications: 1 minute TTL');
         $this->line('     - Business accounts: 3 minute TTL');
 
-        // Background jobs
+        
         $this->line('   Background Jobs:');
         $this->line('     - Notification sending: Queued');
         $this->line('     - Cache warming: Scheduled');

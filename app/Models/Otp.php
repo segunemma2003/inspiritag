@@ -36,7 +36,7 @@ class Otp extends Model
      */
     public static function createOTP(string $email, string $type = 'registration'): self
     {
-        // Delete any existing unused OTPs for this email and type
+        
         self::where('email', $email)
             ->where('type', $type)
             ->where('is_used', false)

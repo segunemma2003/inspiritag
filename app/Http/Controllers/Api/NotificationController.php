@@ -69,7 +69,7 @@ class NotificationController extends Controller
     {
         $user = $request->user();
 
-        // Check if notification belongs to user
+        
         if ($notification->user_id !== $user->id) {
             return response()->json([
                 'success' => false,
@@ -93,7 +93,7 @@ class NotificationController extends Controller
     {
         $user = $request->user();
 
-        // Check if notification belongs to user
+        
         if ($notification->user_id !== $user->id) {
             return response()->json([
                 'success' => false,
@@ -149,7 +149,7 @@ class NotificationController extends Controller
         $user = $request->user();
         $notificationIds = $request->notification_ids;
 
-        // Verify all notifications belong to user
+        
         $userNotificationIds = $user->notifications()->whereIn('id', $notificationIds)->pluck('id');
 
         if ($userNotificationIds->count() !== count($notificationIds)) {
@@ -177,7 +177,7 @@ class NotificationController extends Controller
     {
         $user = $request->user();
 
-        // Check if notification belongs to user
+        
         if ($notification->user_id !== $user->id) {
             return response()->json([
                 'success' => false,

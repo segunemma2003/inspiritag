@@ -67,7 +67,7 @@ class CacheManagementCommand extends Command
         $this->line('');
 
         try {
-            // Test cache connection
+            
             $testKey = 'cache_test_' . time();
             $testValue = 'test_value';
 
@@ -85,11 +85,11 @@ class CacheManagementCommand extends Command
             $this->line("   Write Time: {$putTime}ms");
             $this->line("   Read Time: {$getTime}ms");
 
-            // Check cache driver
+            
             $driver = config('cache.default');
             $this->line("   Driver: {$driver}");
 
-            // Check Redis info if using Redis
+            
             if ($driver === 'redis') {
                 $this->showRedisInfo();
             }
@@ -138,11 +138,11 @@ class CacheManagementCommand extends Command
 
         try {
             if ($pattern === '*') {
-                // Clear all cache
+                
                 Cache::flush();
                 $this->line("   Status: ✅ All cache cleared");
             } else {
-                // Clear specific pattern
+                
                 $this->clearCachePattern($pattern);
             }
 
@@ -182,17 +182,17 @@ class CacheManagementCommand extends Command
         $this->info('🔥 Warming Up Cache');
 
         try {
-            // Warm up popular tags
+            
             $this->line("   Warming up popular tags...");
             PerformanceService::getPopularTags(50);
             $this->line("   ✅ Popular tags cached");
 
-            // Warm up trending posts
+            
             $this->line("   Warming up trending posts...");
             PerformanceService::getTrendingPosts(50);
             $this->line("   ✅ Trending posts cached");
 
-            // Warm up business accounts
+            
             $this->line("   Warming up business accounts...");
             PerformanceService::getBusinessAccounts();
             $this->line("   ✅ Business accounts cached");
@@ -254,7 +254,7 @@ class CacheManagementCommand extends Command
             $this->line("     Keyspace Hits: " . ($info['keyspace_hits'] ?? 0));
             $this->line("     Keyspace Misses: " . ($info['keyspace_misses'] ?? 0));
 
-            // Calculate hit rate
+            
             $hits = $info['keyspace_hits'] ?? 0;
             $misses = $info['keyspace_misses'] ?? 0;
             $total = $hits + $misses;

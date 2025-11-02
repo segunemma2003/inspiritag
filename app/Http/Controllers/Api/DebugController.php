@@ -15,7 +15,7 @@ class DebugController extends Controller
     {
         $s3Config = config('filesystems.disks.s3');
 
-        // Check if CloudFront is being used
+        
         $isUsingCloudFront = !empty($s3Config['url']) &&
                             (str_contains($s3Config['url'], 'cloudfront.net') ||
                              !empty($s3Config['cdn_url']));
@@ -42,7 +42,7 @@ class DebugController extends Controller
             $testPath = 'test/' . time() . '_test.jpg';
             $contentType = 'image/jpeg';
 
-            // Generate presigned URL
+            
             $presignedUrl = S3Service::getTemporaryUrl(
                 $testPath,
                 now()->addMinutes(15),
@@ -50,7 +50,7 @@ class DebugController extends Controller
                 $contentType
             );
 
-            // Parse URL to check configuration
+            
             $parsedUrl = parse_url($presignedUrl);
             parse_str($parsedUrl['query'] ?? '', $queryParams);
 

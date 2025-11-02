@@ -18,7 +18,7 @@ class PerformanceService
         $cacheKey = "user_feed_{$userId}_page_{$page}_per_{$perPage}";
 
         return Cache::remember($cacheKey, 120, function () use ($userId, $perPage) {
-            // Get following IDs efficiently
+            
             $followingIds = DB::table('follows')
                 ->where('follower_id', $userId)
                 ->pluck('following_id')
@@ -162,7 +162,7 @@ class PerformanceService
         ];
 
         if ($postId) {
-            $patterns[] = "user_feed_*_*"; // Invalidate all user feeds
+            $patterns[] = "user_feed_*_*"; 
         }
 
         foreach ($patterns as $pattern) {
@@ -175,13 +175,13 @@ class PerformanceService
      */
     public static function warmUpCaches()
     {
-        // Warm up popular tags
+        
         self::getPopularTags(50);
 
-        // Warm up trending posts
+        
         self::getTrendingPosts(50);
 
-        // Warm up business accounts
+        
         self::getBusinessAccounts();
     }
 }

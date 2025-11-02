@@ -35,22 +35,22 @@ class SystemHealthCheckCommand extends Command
         $this->info('🏥 System Health Check - Inspirtag API');
         $this->line('');
 
-        // Database Health
+        
         $this->checkDatabaseHealth();
 
-        // Cache Health
+        
         $this->checkCacheHealth();
 
-        // Queue Health
+        
         $this->checkQueueHealth();
 
-        // Application Health
+        
         $this->checkApplicationHealth();
 
-        // Performance Health
+        
         $this->checkPerformanceHealth();
 
-        // System Resources
+        
         $this->checkSystemResources();
 
         if ($this->option('detailed')) {
@@ -69,14 +69,14 @@ class SystemHealthCheckCommand extends Command
         $this->info('🗄️  Database Health');
 
         try {
-            // Test connection
+            
             $start = microtime(true);
             DB::select('SELECT 1');
             $connectionTime = round((microtime(true) - $start) * 1000, 2);
 
             $this->line("   Connection: ✅ {$connectionTime}ms");
 
-            // Check table counts
+            
             $tables = ['users', 'posts', 'notifications', 'likes', 'saves', 'follows'];
             $totalRecords = 0;
 
@@ -88,7 +88,7 @@ class SystemHealthCheckCommand extends Command
 
             $this->line("   Total Records: {$totalRecords}");
 
-            // Check for performance issues
+            
             $this->checkDatabasePerformance();
 
         } catch (\Exception $e) {
@@ -104,7 +104,7 @@ class SystemHealthCheckCommand extends Command
     private function checkDatabasePerformance()
     {
         try {
-            // Test common queries
+            
             $start = microtime(true);
             $userCount = User::count();
             $userQueryTime = round((microtime(true) - $start) * 1000, 2);
@@ -117,7 +117,7 @@ class SystemHealthCheckCommand extends Command
             $this->line("     User count: {$userQueryTime}ms");
             $this->line("     Post count: {$postQueryTime}ms");
 
-            // Check for slow queries
+            
             if ($userQueryTime > 100 || $postQueryTime > 100) {
                 $this->line("   ⚠️  Slow queries detected - consider optimization");
             } else {
@@ -137,7 +137,7 @@ class SystemHealthCheckCommand extends Command
         $this->info('💾 Cache Health');
 
         try {
-            // Test cache connection
+            
             $testKey = 'health_check_' . time();
             $testValue = 'test_value';
 
@@ -155,7 +155,7 @@ class SystemHealthCheckCommand extends Command
             $this->line("   Write Time: {$putTime}ms");
             $this->line("   Read Time: {$getTime}ms");
 
-            // Check cache hit rates
+            
             $this->checkCacheHitRates();
 
         } catch (\Exception $e) {
@@ -206,7 +206,7 @@ class SystemHealthCheckCommand extends Command
         try {
             $redis = Redis::connection();
 
-            // Check queue sizes
+            
             $queues = ['default', 'notifications', 'high', 'low'];
             $totalJobs = 0;
 
@@ -217,7 +217,7 @@ class SystemHealthCheckCommand extends Command
                 $this->line("     {$queue}: {$size} jobs");
             }
 
-            // Check failed jobs
+            
             $failedCount = $redis->llen('queues:failed');
             $this->line("     failed: {$failedCount} jobs");
 
@@ -227,7 +227,7 @@ class SystemHealthCheckCommand extends Command
                 $this->line("   ✅ No failed jobs");
             }
 
-            // Check if queue worker is running
+            
             $this->checkQueueWorker();
 
         } catch (\Exception $e) {
@@ -266,26 +266,26 @@ class SystemHealthCheckCommand extends Command
         $this->info('🚀 Application Health');
 
         try {
-            // Check Laravel version
+            
             $laravelVersion = app()->version();
             $this->line("   Laravel Version: {$laravelVersion}");
 
-            // Check PHP version
+            
             $phpVersion = PHP_VERSION;
             $this->line("   PHP Version: {$phpVersion}");
 
-            // Check environment
+            
             $environment = app()->environment();
             $this->line("   Environment: {$environment}");
 
-            // Check if app is in maintenance mode
+            
             if (app()->isDownForMaintenance()) {
                 $this->line("   Maintenance Mode: ⚠️  Enabled");
             } else {
                 $this->line("   Maintenance Mode: ✅ Disabled");
             }
 
-            // Check key application metrics
+            
             $this->checkApplicationMetrics();
 
         } catch (\Exception $e) {
@@ -301,19 +301,19 @@ class SystemHealthCheckCommand extends Command
     private function checkApplicationMetrics()
     {
         try {
-            // Active users
+            
             $activeUsers = User::where('last_seen', '>=', now()->subDay())->count();
             $this->line("   Active Users (24h): {$activeUsers}");
 
-            // Total users
+            
             $totalUsers = User::count();
             $this->line("   Total Users: {$totalUsers}");
 
-            // Posts today
+            
             $postsToday = Post::whereDate('created_at', today())->count();
             $this->line("   Posts Today: {$postsToday}");
 
-            // Unread notifications
+            
             $unreadNotifications = Notification::where('is_read', false)->count();
             $this->line("   Unread Notifications: {$unreadNotifications}");
 
@@ -330,13 +330,13 @@ class SystemHealthCheckCommand extends Command
         $this->info('⚡ Performance Health');
 
         try {
-            // Test API response times
+            
             $this->testApiResponseTimes();
 
-            // Check memory usage
+            
             $this->checkMemoryUsage();
 
-            // Check cache performance
+            
             $this->checkCachePerformance();
 
         } catch (\Exception $e) {
@@ -352,7 +352,7 @@ class SystemHealthCheckCommand extends Command
     private function testApiResponseTimes()
     {
         try {
-            // Test user feed performance
+            
             $start = microtime(true);
             PerformanceService::getUnreadNotificationsCount(1);
             $notificationTime = round((microtime(true) - $start) * 1000, 2);
@@ -383,7 +383,7 @@ class SystemHealthCheckCommand extends Command
         $this->line("   Memory Peak: " . $this->formatBytes($memoryPeak));
         $this->line("   Memory Limit: {$memoryLimit}");
 
-        // Check if memory usage is high
+        
         $memoryLimitBytes = $this->parseMemoryLimit($memoryLimit);
         if ($memoryUsage > ($memoryLimitBytes * 0.8)) {
             $this->line("   ⚠️  High memory usage - consider optimization");
@@ -407,8 +407,8 @@ class SystemHealthCheckCommand extends Command
             $this->line("   Cache Memory: " . $this->formatBytes($memoryUsed));
             $this->line("   Cache Peak: " . $this->formatBytes($memoryPeak));
 
-            // Check if cache memory is high
-            if ($memoryUsed > 100 * 1024 * 1024) { // 100MB
+            
+            if ($memoryUsed > 100 * 1024 * 1024) { 
                 $this->line("   ⚠️  High cache memory usage - consider cleanup");
             } else {
                 $this->line("   ✅ Cache memory usage is acceptable");
@@ -427,10 +427,10 @@ class SystemHealthCheckCommand extends Command
         $this->info('🖥️  System Resources');
 
         try {
-            // Check disk space
+            
             $this->checkDiskSpace();
 
-            // Check system load
+            
             $this->checkSystemLoad();
 
         } catch (\Exception $e) {

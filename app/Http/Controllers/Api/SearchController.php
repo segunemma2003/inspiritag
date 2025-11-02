@@ -15,9 +15,6 @@ use Illuminate\Support\Facades\Log;
 
 class SearchController extends Controller
 {
-    /**
-     * Enhanced search for posts
-     */
     public function searchPosts(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -51,7 +48,6 @@ class SearchController extends Controller
         $dateFrom = $request->get('date_from');
         $dateTo = $request->get('date_to');
 
-        // Build cache key
         $cacheKey = 'search_posts_' . md5(serialize($request->all())) . '_page_' . $request->get('page', 1);
 
         $posts = Cache::remember($cacheKey, 120, function () use ($query, $perPage, $categoryId, $mediaType, $tags, $sortBy, $sortOrder, $dateFrom, $dateTo) {
@@ -69,7 +65,6 @@ class SearchController extends Controller
                       });
                 });
 
-            // Apply filters
             if ($categoryId) {
                 $queryBuilder->where('category_id', $categoryId);
             }
@@ -92,13 +87,12 @@ class SearchController extends Controller
                 $queryBuilder->where('created_at', '<=', $dateTo);
             }
 
-            // Apply sorting
+            
             $queryBuilder->orderBy($sortBy, $sortOrder);
 
             return $queryBuilder->paginate($perPage);
         });
 
-        // Add user interaction data
         $user = $request->user();
         if ($user && $posts->count() > 0) {
             $postIds = $posts->pluck('id');
@@ -134,9 +128,6 @@ class SearchController extends Controller
         ]);
     }
 
-    /**
-     * Enhanced search for users
-     */
     public function searchUsers(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -166,7 +157,6 @@ class SearchController extends Controller
         $sortBy = $request->get('sort_by', 'created_at');
         $sortOrder = $request->get('sort_order', 'desc');
 
-        // Build cache key
         $cacheKey = 'search_users_' . md5(serialize($request->all())) . '_page_' . $request->get('page', 1);
 
         $users = Cache::remember($cacheKey, 120, function () use ($query, $perPage, $profession, $isBusiness, $interests, $sortBy, $sortOrder) {
@@ -178,7 +168,7 @@ class SearchController extends Controller
                       ->orWhere('bio', 'like', "%{$query}%");
                 });
 
-            // Apply filters
+            
             if ($profession) {
                 $queryBuilder->where('profession', 'like', "%{$profession}%");
             }
@@ -195,7 +185,7 @@ class SearchController extends Controller
                 });
             }
 
-            // Apply sorting
+            
             $queryBuilder->orderBy($sortBy, $sortOrder);
 
             return $queryBuilder->paginate($perPage);
@@ -244,7 +234,6 @@ class SearchController extends Controller
         $sortBy = $request->get('sort_by', 'created_at');
         $sortOrder = $request->get('sort_order', 'desc');
 
-        // Build cache key
         $cacheKey = "search_followers_{$user->id}_" . md5(serialize($request->all())) . '_page_' . $request->get('page', 1);
 
         $followers = Cache::remember($cacheKey, 120, function () use ($user, $query, $perPage, $profession, $isBusiness, $sortBy, $sortOrder) {
@@ -257,7 +246,7 @@ class SearchController extends Controller
                       ->orWhere('bio', 'like', "%{$query}%");
                 });
 
-            // Apply filters
+            
             if ($profession) {
                 $queryBuilder->where('profession', 'like', "%{$profession}%");
             }
@@ -266,7 +255,7 @@ class SearchController extends Controller
                 $queryBuilder->where('is_business', $isBusiness);
             }
 
-            // Apply sorting
+            
             $queryBuilder->orderBy($sortBy, $sortOrder);
 
             return $queryBuilder->paginate($perPage);
@@ -315,7 +304,6 @@ class SearchController extends Controller
         $sortBy = $request->get('sort_by', 'created_at');
         $sortOrder = $request->get('sort_order', 'desc');
 
-        // Build cache key
         $cacheKey = "search_following_{$user->id}_" . md5(serialize($request->all())) . '_page_' . $request->get('page', 1);
 
         $following = Cache::remember($cacheKey, 120, function () use ($user, $query, $perPage, $profession, $isBusiness, $sortBy, $sortOrder) {
@@ -328,7 +316,7 @@ class SearchController extends Controller
                       ->orWhere('bio', 'like', "%{$query}%");
                 });
 
-            // Apply filters
+            
             if ($profession) {
                 $queryBuilder->where('profession', 'like', "%{$profession}%");
             }
@@ -337,7 +325,7 @@ class SearchController extends Controller
                 $queryBuilder->where('is_business', $isBusiness);
             }
 
-            // Apply sorting
+            
             $queryBuilder->orderBy($sortBy, $sortOrder);
 
             return $queryBuilder->paginate($perPage);
@@ -383,7 +371,6 @@ class SearchController extends Controller
 
         $results = [];
 
-        // Search posts
         if (in_array('posts', $types)) {
             $posts = Post::with(['user:id,name,full_name,username,profile_picture', 'category:id,name,color,icon', 'tags:id,name,slug'])
                 ->where('is_public', true)
@@ -408,7 +395,6 @@ class SearchController extends Controller
             ];
         }
 
-        // Search users
         if (in_array('users', $types)) {
             $users = User::select(['id', 'name', 'full_name', 'username', 'profile_picture', 'bio', 'profession', 'is_business', 'created_at'])
                 ->where(function ($q) use ($query) {
@@ -427,7 +413,6 @@ class SearchController extends Controller
             ];
         }
 
-        // Search tags
         if (in_array('tags', $types)) {
             $tags = Tag::where('name', 'like', "%{$query}%")
                 ->orderBy('usage_count', 'desc')
@@ -455,12 +440,10 @@ class SearchController extends Controller
     {
         $limit = min($request->get('limit', 10), 20);
 
-        // Get trending tags
         $trendingTags = Tag::orderBy('usage_count', 'desc')
             ->limit($limit)
             ->get(['id', 'name', 'slug', 'usage_count']);
 
-        // Get popular users (by followers count)
         $popularUsers = User::withCount('followers')
             ->orderBy('followers_count', 'desc')
             ->limit($limit)

@@ -23,7 +23,7 @@ class UserTaggingService
             DB::beginTransaction();
 
             foreach ($userIds as $userId) {
-                // Skip if trying to tag themselves
+                
                 if ($userId == $taggedBy->id) {
                     continue;
                 }
@@ -33,22 +33,22 @@ class UserTaggingService
                     continue;
                 }
 
-                // Check if user is already tagged
+                
                 if ($post->taggedUsers()->where('user_id', $userId)->exists()) {
                     continue;
                 }
 
-                // Tag the user
+                
                 $post->taggedUsers()->attach($userId);
                 $taggedUsers[] = $user;
 
-                // Create notification
+                
                 $notification = $this->createTagNotification($post, $user, $taggedBy);
                 if ($notification) {
                     $notifications[] = $notification;
                 }
 
-                // Send push notification
+                
                 $this->sendTagNotification($post, $user, $taggedBy);
             }
 
@@ -167,7 +167,7 @@ class UserTaggingService
                 'post_media_type' => $post->media_type,
             ];
 
-            // Dispatch notification job
+            
             SendNotificationJob::dispatch(
                 $taggedUser->id,
                 $title,
@@ -188,7 +188,7 @@ class UserTaggingService
     {
         $userIds = [];
 
-        // Match @username patterns
+        
         preg_match_all('/@(\w+)/', $caption, $matches);
 
         if (!empty($matches[1])) {

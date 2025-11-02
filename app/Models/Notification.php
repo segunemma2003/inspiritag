@@ -66,8 +66,6 @@ class Notification extends Model
             'read_at' => null,
         ]);
     }
-
-
     /**
      * Scope for unread notifications
      */

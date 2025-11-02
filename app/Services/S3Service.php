@@ -98,31 +98,29 @@ class S3Service
     /**
      * Get file URL from S3
      */
-    // public static function getFileUrl(string $path): string
-    // {
-    //     $bucket = config('filesystems.disks.s3.bucket');
-    //     $region = config('filesystems.disks.s3.region');
-    //     return "https://{$bucket}.s3.{$region}.amazonaws.com/{$path}";
-    // }
-
-
+    
+    
+    
+    
+    
+    
 public static function getFileUrl(string $path): string
     {
-        // Use CDN if configured
+        
         $cdnUrl = config('filesystems.disks.s3.cdn_url');
 
         if ($cdnUrl) {
-            // Ensure CDN URL has protocol
-            if (!str_starts_with($cdnUrl, 'http://') && !str_starts_with($cdnUrl, 'https://')) {
-                $cdnUrl = 'https://' . $cdnUrl;
+            
+            if (!str_starts_with($cdnUrl, 'http:
+                $cdnUrl = 'https:
             }
             return rtrim($cdnUrl, '/') . '/' . ltrim($path, '/');
         }
 
-        // Fallback to direct S3
+        
         $bucket = config('filesystems.disks.s3.bucket');
         $region = config('filesystems.disks.s3.region');
-        return "https://{$bucket}.s3.{$region}.amazonaws.com/{$path}";
+        return "https:
     }
     /**
      * Get file URL from S3 (alias for getFileUrl)
@@ -200,10 +198,10 @@ public static function getFileUrl(string $path): string
             return (string) $request->getUri();
         } catch (AwsException $e) {
             Log::error("AWS Error generating temporary URL for: {$path}. Error: " . $e->getAwsErrorMessage());
-            throw $e; // Re-throw to be caught by controller
+            throw $e; 
         } catch (\Exception $e) {
             Log::error("Failed to generate temporary URL for: {$path}. Error: " . $e->getMessage());
-            throw $e; // Re-throw to be caught by controller
+            throw $e; 
         }
     }
 
@@ -214,7 +212,7 @@ public static function getFileUrl(string $path): string
     {
         $uploadResult = self::uploadFile($file, $folder);
 
-        // Add CDN URL if configured
+        
         if (config('filesystems.disks.s3.cdn_url')) {
             $uploadResult['cdn_url'] = str_replace(
                 config('filesystems.disks.s3.url'),
@@ -232,8 +230,8 @@ public static function getFileUrl(string $path): string
     public static function generateThumbnail(string $imagePath, int $width = 300, int $height = 300): ?string
     {
         try {
-            // This would require image processing library like Intervention Image
-            // For now, return the original URL
+            
+            
             return self::getFileUrl($imagePath);
         } catch (\Exception $e) {
             Log::error("Failed to generate thumbnail for: {$imagePath}. Error: " . $e->getMessage());
@@ -272,7 +270,7 @@ public static function getFileUrl(string $path): string
             try {
                 $totalSize += Storage::disk('s3')->size($file);
             } catch (\Exception $e) {
-                // Skip files that can't be accessed
+                
                 continue;
             }
         }

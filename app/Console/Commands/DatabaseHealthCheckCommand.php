@@ -30,22 +30,22 @@ class DatabaseHealthCheckCommand extends Command
         $this->info('🔍 Database Health Check - Inspirtag API');
         $this->line('');
 
-        // Check database connection
+        
         $this->checkConnection();
 
-        // Check table structure
+        
         $this->checkTableStructure();
 
-        // Check indexes
+        
         $this->checkIndexes();
 
-        // Check foreign keys
+        
         $this->checkForeignKeys();
 
-        // Check data integrity
+        
         $this->checkDataIntegrity();
 
-        // Performance recommendations
+        
         $this->performanceRecommendations();
 
         $this->line('');
@@ -205,13 +205,13 @@ class DatabaseHealthCheckCommand extends Command
         $this->info('🔍 Data Integrity');
 
         try {
-            // Check for orphaned records
+            
             $this->checkOrphanedRecords();
 
-            // Check for duplicate records
+            
             $this->checkDuplicateRecords();
 
-            // Check for null constraints
+            
             $this->checkNullConstraints();
 
         } catch (\Exception $e) {
@@ -228,7 +228,7 @@ class DatabaseHealthCheckCommand extends Command
     {
         $this->line("   Orphaned Records:");
 
-        // Check for posts without users
+        
         $orphanedPosts = DB::table('posts')
             ->leftJoin('users', 'posts.user_id', '=', 'users.id')
             ->whereNull('users.id')
@@ -240,7 +240,7 @@ class DatabaseHealthCheckCommand extends Command
             $this->line("     Posts: ✅ No orphaned records");
         }
 
-        // Check for likes without users
+        
         $orphanedLikes = DB::table('likes')
             ->leftJoin('users', 'likes.user_id', '=', 'users.id')
             ->whereNull('users.id')
@@ -260,7 +260,7 @@ class DatabaseHealthCheckCommand extends Command
     {
         $this->line("   Duplicate Records:");
 
-        // Check for duplicate follows
+        
         $duplicateFollows = DB::table('follows')
             ->select('follower_id', 'following_id')
             ->groupBy('follower_id', 'following_id')
@@ -273,7 +273,7 @@ class DatabaseHealthCheckCommand extends Command
             $this->line("     Follows: ✅ No duplicates");
         }
 
-        // Check for duplicate likes
+        
         $duplicateLikes = DB::table('likes')
             ->select('user_id', 'post_id')
             ->groupBy('user_id', 'post_id')
@@ -294,7 +294,7 @@ class DatabaseHealthCheckCommand extends Command
     {
         $this->line("   Null Constraints:");
 
-        // Check for users without email
+        
         $usersWithoutEmail = DB::table('users')->whereNull('email')->count();
         if ($usersWithoutEmail > 0) {
             $this->error("     Users without email: {$usersWithoutEmail}");
@@ -302,7 +302,7 @@ class DatabaseHealthCheckCommand extends Command
             $this->line("     Users email: ✅ All have email");
         }
 
-        // Check for posts without media_url
+        
         $postsWithoutMedia = DB::table('posts')->whereNull('media_url')->count();
         if ($postsWithoutMedia > 0) {
             $this->error("     Posts without media: {$postsWithoutMedia}");

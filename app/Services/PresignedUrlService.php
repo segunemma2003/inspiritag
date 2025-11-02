@@ -24,7 +24,7 @@ class PresignedUrlService
                     'key' => config('filesystems.disks.s3.key'),
                     'secret' => config('filesystems.disks.s3.secret'),
                 ],
-                'endpoint' => 'https://s3.eu-north-1.amazonaws.com',
+                'endpoint' => 'https:
                 'use_path_style_endpoint' => false,
             ]);
         }
@@ -44,15 +44,15 @@ class PresignedUrlService
             $s3Client = self::getS3Client();
             $bucket = config('filesystems.disks.s3.bucket');
 
-            // Create the command with all necessary parameters
+            
             $command = $s3Client->getCommand('PutObject', [
                 'Bucket' => $bucket,
                 'Key' => $key,
                 'ContentType' => $contentType,
-                'ACL' => 'private', // Ensure private access
+                'ACL' => 'private', 
             ]);
 
-            // Create presigned request
+            
             $request = $s3Client->createPresignedRequest(
                 $command,
                 "+{$expirationMinutes} minutes"
@@ -60,7 +60,7 @@ class PresignedUrlService
 
             $presignedUrl = (string) $request->getUri();
 
-            // Log for debugging
+            
             Log::info('Generated presigned URL', [
                 'key' => $key,
                 'content_type' => $contentType,
@@ -203,10 +203,10 @@ class PresignedUrlService
             $s3Client = self::getS3Client();
             $bucket = config('filesystems.disks.s3.bucket');
 
-            // Test bucket access
+            
             $s3Client->headBucket(['Bucket' => $bucket]);
 
-            // Test presigned URL generation
+            
             $testKey = 'test/' . time() . '_test.jpg';
             $result = self::generateUploadUrl($testKey, 'image/jpeg', 5);
 

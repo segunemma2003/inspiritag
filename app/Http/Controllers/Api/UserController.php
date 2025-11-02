@@ -36,18 +36,18 @@ class UserController extends Controller
     {
         $authenticatedUser = $request->user();
 
-        // Load user's public posts
+        
         $user->load(['posts' => function ($query) {
             $query->where('is_public', true)->latest();
         }]);
 
-        // Check if authenticated user is following this user
+        
         $isFollowed = false;
         if ($authenticatedUser && $authenticatedUser->id !== $user->id) {
             $isFollowed = $authenticatedUser->following()->where('following_id', $user->id)->exists();
         }
 
-        // Add is_followed to user data
+        
         $userData = $user->toArray();
         $userData['is_followed'] = $isFollowed;
 
@@ -61,31 +61,31 @@ class UserController extends Controller
     {
         $perPage = min($request->get('per_page', 20), 50);
 
-        // Get user's public posts with pagination
+        
         $posts = $user->posts()
             ->where('is_public', true)
             ->with(['user:id,name,full_name,username,profile_picture', 'category:id,name,color,icon', 'tags:id,name,slug'])
             ->orderBy('created_at', 'desc')
             ->paginate($perPage);
 
-        // Add interaction status for authenticated user
+        
         $authenticatedUser = $request->user();
         if ($authenticatedUser) {
             $postIds = $posts->pluck('id');
 
-            // Get user's likes for these posts
+            
             $likedPostIds = $authenticatedUser->likes()
                 ->whereIn('post_id', $postIds)
                 ->pluck('post_id')
                 ->toArray();
 
-            // Get user's saves for these posts
+            
             $savedPostIds = $authenticatedUser->saves()
                 ->whereIn('post_id', $postIds)
                 ->pluck('post_id')
                 ->toArray();
 
-            // Add interaction status to each post
+            
             $posts->getCollection()->transform(function ($post) use ($likedPostIds, $savedPostIds) {
                 $post->is_liked = in_array($post->id, $likedPostIds);
                 $post->is_saved = in_array($post->id, $savedPostIds);
@@ -102,8 +102,6 @@ class UserController extends Controller
     public function updateProfile(Request $request)
     {
         $user = $request->user();
-
-
         $validator = Validator::make($request->all(), [
             'full_name' => 'nullable|string|max:255',
             'username' => 'nullable|string|max:255|unique:users,username,' . $user->id,
@@ -124,25 +122,23 @@ class UserController extends Controller
 
         $data = $request->only(['full_name', 'username', 'bio', 'profession', 'interests']);
 
-        // Debug: Log all request data
+        
         Log::info("Request data: " . json_encode($request->all()));
         Log::info("Has file profile_picture: " . ($request->hasFile('profile_picture') ? 'true' : 'false'));
         Log::info("Files in request: " . json_encode(array_keys($request->allFiles())));
-
-
         if ($request->hasFile('profile_picture')) {
             Log::info("Profile picture upload started for user: " . $user->id);
             try {
-                // Delete old profile picture (with error handling)
+                
                 if ($user->profile_picture) {
                     try {
-                        // Extract the S3 path from the full URL
+                        
                         $s3Url = config('filesystems.disks.s3.url');
                         $cdnUrl = config('filesystems.disks.s3.cdn_url');
 
                         $oldPath = $user->profile_picture;
 
-                        // Remove domain part to get just the path
+                        
                         if ($s3Url) {
                             $oldPath = str_replace($s3Url, '', $oldPath);
                         }
@@ -150,7 +146,7 @@ class UserController extends Controller
                             $oldPath = str_replace($cdnUrl, '', $oldPath);
                         }
 
-                        // Remove leading slashes and http/https
+                        
                         $oldPath = ltrim($oldPath, '/');
                         $oldPath = preg_replace('#^https?://[^/]+/#', '', $oldPath);
 
@@ -158,12 +154,12 @@ class UserController extends Controller
                             Storage::disk('s3')->delete($oldPath);
                         }
                     } catch (\Exception $e) {
-                        // Log but don't fail - old picture deletion is not critical
+                        
                         Log::warning("Failed to delete old profile picture: " . $e->getMessage());
                     }
                 }
 
-                // Store new profile picture using normal Storage::disk('s3')
+                
                 $file = $request->file('profile_picture');
                 Log::info("File details: " . json_encode([
                     'original_name' => $file->getClientOriginalName(),
@@ -176,16 +172,16 @@ class UserController extends Controller
                 $path = $file->storeAs('profiles', $filename, 's3');
                 Log::info("File stored at path: " . $path);
 
-                // Generate the URL using CDN if available, otherwise use direct S3
+                
                 $cdnUrl = config('filesystems.disks.s3.cdn_url');
                 if ($cdnUrl) {
-                    // Ensure CDN URL has protocol
+                    
                     if (!str_starts_with($cdnUrl, 'http://') && !str_starts_with($cdnUrl, 'https://')) {
                         $cdnUrl = 'https://' . $cdnUrl;
                     }
                     $data['profile_picture'] = rtrim($cdnUrl, '/') . '/' . ltrim($path, '/');
                 } else {
-                    // Fallback to direct S3
+                    
                     $bucket = config('filesystems.disks.s3.bucket');
                     $region = config('filesystems.disks.s3.region');
                     $data['profile_picture'] = "https://{$bucket}.s3.{$region}.amazonaws.com/{$path}";
@@ -238,7 +234,7 @@ class UserController extends Controller
             'following_id' => $user->id,
         ]);
 
-        // Create notification using Firebase service
+        
         $firebaseService = new FirebaseNotificationService();
         $firebaseService->sendFollowNotification($follower, $user);
 
@@ -276,7 +272,7 @@ class UserController extends Controller
         $authenticatedUser = $request->user();
         $followers = $user->followers()->paginate(20);
 
-        // Add is_followed status for authenticated user
+        
         if ($authenticatedUser) {
             $followerIds = $followers->pluck('id');
             $followedIds = $authenticatedUser->following()
@@ -284,7 +280,7 @@ class UserController extends Controller
                 ->pluck('following_id')
                 ->toArray();
 
-            // Add is_followed to each follower
+            
             $followers->getCollection()->transform(function ($follower) use ($followedIds) {
                 $follower->is_followed = in_array($follower->id, $followedIds);
                 return $follower;
@@ -302,7 +298,7 @@ class UserController extends Controller
         $authenticatedUser = $request->user();
         $following = $user->following()->paginate(20);
 
-        // Add is_followed status for authenticated user
+        
         if ($authenticatedUser) {
             $followingIds = $following->pluck('id');
             $followedIds = $authenticatedUser->following()
@@ -310,7 +306,7 @@ class UserController extends Controller
                 ->pluck('following_id')
                 ->toArray();
 
-            // Add is_followed to each user being followed
+            
             $following->getCollection()->transform(function ($followedUser) use ($followedIds) {
                 $followedUser->is_followed = in_array($followedUser->id, $followedIds);
                 return $followedUser;

@@ -70,25 +70,25 @@ class PerformanceDashboardCommand extends Command
         $this->info('📊 Performance Dashboard - Inspirtag API');
         $this->line('');
 
-        // System Overview
+        
         $this->showSystemOverview();
 
-        // Database Performance
+        
         $this->showDatabasePerformance();
 
-        // Cache Performance
+        
         $this->showCachePerformance();
 
-        // Queue Performance
+        
         $this->showQueuePerformance();
 
-        // User Activity
+        
         $this->showUserActivity();
 
-        // Content Metrics
+        
         $this->showContentMetrics();
 
-        // Performance Alerts
+        
         $this->showPerformanceAlerts();
 
         $this->line('');
@@ -103,17 +103,17 @@ class PerformanceDashboardCommand extends Command
         $this->info('🏥 System Overview');
 
         try {
-            // System status
+            
             $this->line("   Status: ✅ System Healthy");
             $this->line("   Time: " . now()->format('Y-m-d H:i:s'));
             $this->line("   Uptime: " . $this->getSystemUptime());
 
-            // Memory usage
+            
             $memoryUsage = memory_get_usage(true);
             $memoryPeak = memory_get_peak_usage(true);
             $this->line("   Memory: " . $this->formatBytes($memoryUsage) . " / " . $this->formatBytes($memoryPeak));
 
-            // PHP version
+            
             $this->line("   PHP: " . PHP_VERSION);
             $this->line("   Laravel: " . app()->version());
 
@@ -132,17 +132,17 @@ class PerformanceDashboardCommand extends Command
         $this->info('🗄️  Database Performance');
 
         try {
-            // Connection test
+            
             $start = microtime(true);
             DB::select('SELECT 1');
             $connectionTime = round((microtime(true) - $start) * 1000, 2);
 
             $this->line("   Connection: {$connectionTime}ms");
 
-            // Query performance tests
+            
             $this->testQueryPerformance();
 
-            // Table sizes
+            
             $this->showTableSizes();
 
         } catch (\Exception $e) {
@@ -158,17 +158,17 @@ class PerformanceDashboardCommand extends Command
     private function testQueryPerformance()
     {
         try {
-            // Test user count query
+            
             $start = microtime(true);
             $userCount = User::count();
             $userQueryTime = round((microtime(true) - $start) * 1000, 2);
 
-            // Test post count query
+            
             $start = microtime(true);
             $postCount = Post::count();
             $postQueryTime = round((microtime(true) - $start) * 1000, 2);
 
-            // Test notification count query
+            
             $start = microtime(true);
             $notificationCount = Notification::count();
             $notificationQueryTime = round((microtime(true) - $start) * 1000, 2);
@@ -178,7 +178,7 @@ class PerformanceDashboardCommand extends Command
             $this->line("     Posts: {$postQueryTime}ms ({$postCount} records)");
             $this->line("     Notifications: {$notificationQueryTime}ms ({$notificationCount} records)");
 
-            // Performance status
+            
             $maxTime = max($userQueryTime, $postQueryTime, $notificationQueryTime);
             if ($maxTime > 100) {
                 $this->line("   Status: ⚠️  Slow queries detected");
@@ -225,7 +225,7 @@ class PerformanceDashboardCommand extends Command
             $redis = Redis::connection();
             $info = $redis->info();
 
-            // Cache metrics
+            
             $memoryUsed = $info['used_memory'] ?? 0;
             $memoryPeak = $info['used_memory_peak'] ?? 0;
             $connectedClients = $info['connected_clients'] ?? 0;
@@ -236,7 +236,7 @@ class PerformanceDashboardCommand extends Command
             $this->line("   Clients: {$connectedClients}");
             $this->line("   Commands: {$totalCommands} ({$commandsPerSec}/sec)");
 
-            // Cache hit rate
+            
             $hits = $info['keyspace_hits'] ?? 0;
             $misses = $info['keyspace_misses'] ?? 0;
             $total = $hits + $misses;
@@ -272,7 +272,7 @@ class PerformanceDashboardCommand extends Command
         try {
             $redis = Redis::connection();
 
-            // Queue sizes
+            
             $queues = ['default', 'notifications', 'high', 'low'];
             $totalJobs = 0;
 
@@ -283,20 +283,20 @@ class PerformanceDashboardCommand extends Command
                 $this->line("     {$queue}: {$size}");
             }
 
-            // Failed jobs
+            
             $failedCount = $redis->llen('queues:failed');
             $this->line("     failed: {$failedCount}");
 
             $this->line("   Total Jobs: {$totalJobs}");
 
-            // Queue status
+            
             if ($failedCount > 0) {
                 $this->line("   Status: ⚠️  Failed jobs detected");
             } else {
                 $this->line("   Status: ✅ No failed jobs");
             }
 
-            // Check queue worker
+            
             $this->checkQueueWorker();
 
         } catch (\Exception $e) {
@@ -334,23 +334,23 @@ class PerformanceDashboardCommand extends Command
         $this->info('👥 User Activity');
 
         try {
-            // Active users
+            
             $activeUsers = User::where('last_seen', '>=', now()->subDay())->count();
             $this->line("   Active (24h): {$activeUsers}");
 
-            // Total users
+            
             $totalUsers = User::count();
             $this->line("   Total: {$totalUsers}");
 
-            // Business accounts
+            
             $businessAccounts = User::where('is_business', true)->count();
             $this->line("   Business: {$businessAccounts}");
 
-            // Admin users
+            
             $adminUsers = User::where('is_admin', true)->count();
             $this->line("   Admin: {$adminUsers}");
 
-            // Activity rate
+            
             if ($totalUsers > 0) {
                 $activityRate = round(($activeUsers / $totalUsers) * 100, 2);
                 $this->line("   Activity Rate: {$activityRate}%");
@@ -371,27 +371,27 @@ class PerformanceDashboardCommand extends Command
         $this->info('📝 Content Metrics');
 
         try {
-            // Total posts
+            
             $totalPosts = Post::count();
             $this->line("   Total Posts: {$totalPosts}");
 
-            // Posts today
+            
             $postsToday = Post::whereDate('created_at', today())->count();
             $this->line("   Posts Today: {$postsToday}");
 
-            // Public posts
+            
             $publicPosts = Post::where('is_public', true)->count();
             $this->line("   Public Posts: {$publicPosts}");
 
-            // Total likes
+            
             $totalLikes = DB::table('likes')->count();
             $this->line("   Total Likes: {$totalLikes}");
 
-            // Total saves
+            
             $totalSaves = DB::table('saves')->count();
             $this->line("   Total Saves: {$totalSaves}");
 
-            // Unread notifications
+            
             $unreadNotifications = Notification::where('is_read', false)->count();
             $this->line("   Unread Notifications: {$unreadNotifications}");
 
@@ -412,16 +412,16 @@ class PerformanceDashboardCommand extends Command
         $alerts = [];
 
         try {
-            // Check for slow queries
+            
             $this->checkSlowQueries($alerts);
 
-            // Check for high memory usage
+            
             $this->checkMemoryUsage($alerts);
 
-            // Check for failed jobs
+            
             $this->checkFailedJobs($alerts);
 
-            // Check for low cache hit rate
+            
             $this->checkCacheHitRate($alerts);
 
             if (empty($alerts)) {
@@ -454,7 +454,7 @@ class PerformanceDashboardCommand extends Command
             }
 
         } catch (\Exception $e) {
-            // Ignore errors in alert checking
+            
         }
     }
 
@@ -486,7 +486,7 @@ class PerformanceDashboardCommand extends Command
             }
 
         } catch (\Exception $e) {
-            // Ignore errors in alert checking
+            
         }
     }
 
@@ -511,7 +511,7 @@ class PerformanceDashboardCommand extends Command
             }
 
         } catch (\Exception $e) {
-            // Ignore errors in alert checking
+            
         }
     }
 

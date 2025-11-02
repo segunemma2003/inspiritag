@@ -32,11 +32,11 @@ class DeviceController extends Controller
 
         $user = $request->user();
 
-        // Check if device already exists
+        
         $existingDevice = Device::where('device_token', $request->device_token)->first();
 
         if ($existingDevice) {
-            // Update existing device
+            
             $existingDevice->update([
                 'user_id' => $user->id,
                 'device_type' => $request->device_type,
@@ -54,7 +54,7 @@ class DeviceController extends Controller
             ]);
         }
 
-        // Create new device
+        
         $device = Device::create([
             'user_id' => $user->id,
             'device_token' => $request->device_token,
@@ -94,7 +94,7 @@ class DeviceController extends Controller
     {
         $user = $request->user();
 
-        // Check if device belongs to user
+        
         if ($device->user_id !== $user->id) {
             return response()->json([
                 'success' => false,
@@ -134,7 +134,7 @@ class DeviceController extends Controller
     {
         $user = $request->user();
 
-        // Check if device belongs to user
+        
         if ($device->user_id !== $user->id) {
             return response()->json([
                 'success' => false,
@@ -157,7 +157,7 @@ class DeviceController extends Controller
     {
         $user = $request->user();
 
-        // Check if device belongs to user
+        
         if ($device->user_id !== $user->id) {
             return response()->json([
                 'success' => false,

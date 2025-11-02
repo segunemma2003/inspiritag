@@ -29,7 +29,7 @@ class DeleteUnverifiedUsers extends Command
     {
         $thirtyMinutesAgo = Carbon::now()->subMinutes(30);
 
-        // Find unverified users created more than 30 minutes ago
+        
         $users = User::whereNull('email_verified_at')
             ->where('created_at', '<=', $thirtyMinutesAgo)
             ->get();
@@ -41,7 +41,7 @@ class DeleteUnverifiedUsers extends Command
             return 0;
         }
 
-        // Delete the users
+        
         foreach ($users as $user) {
             $this->info("Deleting unverified user: {$user->email}");
             $user->delete();

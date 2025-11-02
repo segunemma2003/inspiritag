@@ -29,22 +29,22 @@ class WarmUpCachesCommand extends Command
     {
         $this->info('Starting cache warm-up process...');
 
-        // Warm up popular tags
+        
         $this->info('Warming up popular tags...');
         PerformanceService::getPopularTags(50);
         $this->info('✓ Popular tags cached');
 
-        // Warm up trending posts
+        
         $this->info('Warming up trending posts...');
         PerformanceService::getTrendingPosts(50);
         $this->info('✓ Trending posts cached');
 
-        // Warm up business accounts
+        
         $this->info('Warming up business accounts...');
         PerformanceService::getBusinessAccounts();
         $this->info('✓ Business accounts cached');
 
-        // Clear old cache entries
+        
         $this->info('Cleaning up old cache entries...');
         $this->cleanupOldCaches();
 
@@ -56,8 +56,8 @@ class WarmUpCachesCommand extends Command
      */
     private function cleanupOldCaches()
     {
-        // This would be implemented based on your cache driver
-        // For Redis, you could use pattern matching to clean up old entries
+        
+        
         $this->info('✓ Old cache entries cleaned up');
     }
 }

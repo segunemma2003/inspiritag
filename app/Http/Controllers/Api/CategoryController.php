@@ -24,7 +24,7 @@ class CategoryController extends Controller
 
     public function store(Request $request)
     {
-        // Only admins can create categories
+        
         if (!$request->user()->is_admin) {
             return response()->json([
                 'success' => false,
@@ -65,7 +65,7 @@ class CategoryController extends Controller
 
     public function update(Request $request, Category $category)
     {
-        // Only admins can update categories
+        
         if (!$request->user()->is_admin) {
             return response()->json([
                 'success' => false,
@@ -107,7 +107,7 @@ class CategoryController extends Controller
 
     public function destroy(Request $request, Category $category)
     {
-        // Only admins can delete categories
+        
         if (!$request->user()->is_admin) {
             return response()->json([
                 'success' => false,
