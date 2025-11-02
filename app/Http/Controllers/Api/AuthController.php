@@ -38,20 +38,20 @@ class AuthController extends Controller
             ], 422);
         }
 
-        
+
         $user = User::create([
             'name' => $request->full_name,
             'full_name' => $request->full_name,
             'username' => $request->username,
             'email' => $request->email,
             'password' => Hash::make($request->password),
-            'email_verified_at' => null, 
+            'email_verified_at' => null,
         ]);
 
-        
+
         $otpRecord = Otp::createOTP($request->email, 'registration');
 
-        
+
         Notification::route('mail', $request->email)
             ->notify(new SendOtpNotification($otpRecord->otp, 'registration'));
 
@@ -71,7 +71,7 @@ class AuthController extends Controller
         $validator = Validator::make($request->all(), [
             'email' => 'required|email|exists:users,email',
             'otp' => 'required|string|size:6',
-            
+
             'device_token' => 'nullable|string|max:255',
             'device_type' => 'nullable|string|in:android,ios,web',
             'device_name' => 'nullable|string|max:255',
@@ -87,7 +87,7 @@ class AuthController extends Controller
             ], 422);
         }
 
-        
+
         $otpRecord = Otp::verifyOTP($request->email, $request->otp, 'registration');
 
         if (!$otpRecord) {
@@ -97,17 +97,17 @@ class AuthController extends Controller
             ], 400);
         }
 
-        
+
         $otpRecord->markAsUsed();
 
-        
+
         $user = User::where('email', $request->email)->first();
         $user->markEmailAsVerified();
 
-        
+
         $token = $user->createToken('auth_token')->plainTextToken;
 
-        
+
         if ($request->device_token) {
             $this->registerDevice($user, $request);
         }
@@ -140,7 +140,7 @@ class AuthController extends Controller
 
         $user = User::where('email', $request->email)->first();
 
-        
+
         if ($request->type === 'registration' && $user->hasVerifiedEmail()) {
             return response()->json([
                 'success' => false,
@@ -148,10 +148,10 @@ class AuthController extends Controller
             ], 400);
         }
 
-        
+
         $otpRecord = Otp::createOTP($request->email, $request->type);
 
-        
+
         Notification::route('mail', $request->email)
             ->notify(new SendOtpNotification($otpRecord->otp, $request->type));
 
@@ -169,7 +169,7 @@ class AuthController extends Controller
         $validator = Validator::make($request->all(), [
             'email' => 'required|email',
             'password' => 'required|string',
-            
+
             'device_token' => 'nullable|string|max:255',
             'device_type' => 'nullable|string|in:android,ios,web',
             'device_name' => 'nullable|string|max:255',
@@ -194,7 +194,7 @@ class AuthController extends Controller
 
         $user = Auth::user();
 
-        
+
         if (!$user->hasVerifiedEmail()) {
             Auth::logout();
             return response()->json([
@@ -206,7 +206,7 @@ class AuthController extends Controller
 
         $token = $user->createToken('auth_token')->plainTextToken;
 
-        
+
         if ($request->device_token) {
             $this->registerDevice($user, $request);
         }
@@ -248,7 +248,7 @@ class AuthController extends Controller
 
         $user = User::where('email', $request->email)->first();
 
-        
+
         if (!$user->hasVerifiedEmail()) {
             return response()->json([
                 'success' => false,
@@ -256,10 +256,10 @@ class AuthController extends Controller
             ], 403);
         }
 
-        
+
         $otpRecord = Otp::createOTP($request->email, 'password_reset');
 
-        
+
         Notification::route('mail', $request->email)
             ->notify(new SendOtpNotification($otpRecord->otp, 'password_reset'));
 
@@ -288,7 +288,7 @@ class AuthController extends Controller
             ], 422);
         }
 
-        
+
         $otpRecord = Otp::verifyOTP($request->email, $request->otp, 'password_reset');
 
         if (!$otpRecord) {
@@ -298,16 +298,16 @@ class AuthController extends Controller
             ], 400);
         }
 
-        
+
         $otpRecord->markAsUsed();
 
-        
+
         $user = User::where('email', $request->email)->first();
         $user->update([
             'password' => Hash::make($request->password)
         ]);
 
-        
+
         $user->tokens()->delete();
 
         return response()->json([
@@ -333,22 +333,22 @@ class AuthController extends Controller
             ], 422);
         }
 
-        
-        
+
+
         $user = User::where('email', $request->email)->first();
 
         if (!$user) {
-            
+
             $user = User::create([
                 'name' => $request->name ?? 'User',
                 'full_name' => $request->name ?? 'User',
                 'email' => $request->email,
                 'username' => Str::slug($request->name ?? 'user') . '_' . Str::random(4),
                 'password' => Hash::make(Str::random(16)),
-                'email_verified_at' => now(), 
+                'email_verified_at' => now(),
             ]);
         } else {
-            
+
             if (!$user->hasVerifiedEmail()) {
                 $user->markEmailAsVerified();
             }
@@ -372,7 +372,7 @@ class AuthController extends Controller
         $user = $request->user();
 
         $userId = $user->id;
-        
+
         $user->posts()->delete();
         $user->likes()->delete();
         $user->saves()->delete();
@@ -395,10 +395,10 @@ class AuthController extends Controller
     {
         $user = $request->user();
 
-        
+
         $user->load(['followers', 'following', 'posts', 'devices']);
 
-        
+
         $stats = [
             'posts_count' => $user->posts()->count(),
             'followers_count' => $user->followers()->count(),
@@ -409,27 +409,27 @@ class AuthController extends Controller
             'comments_received' => $user->posts()->sum('comments_count'),
         ];
 
-        
+
         $recentPosts = $user->posts()
             ->where('is_public', true)
             ->orderBy('created_at', 'desc')
             ->limit(5)
             ->get(['id', 'caption', 'media_url', 'media_type', 'likes_count', 'saves_count', 'shares_count', 'comments_count', 'created_at']);
 
-        
+
         $devices = $user->devices()
             ->where('is_active', true)
             ->get(['id', 'device_type', 'device_name', 'app_version', 'os_version', 'last_used_at']);
 
-        
+
         $unreadNotificationsCount = $user->notifications()
             ->where('is_read', false)
             ->count();
 
-        
+
         $userInterests = $user->interests ?? [];
 
-        
+
         $businessInfo = null;
         if ($user->is_business) {
             $businessInfo = [
@@ -482,11 +482,11 @@ class AuthController extends Controller
     private function registerDevice(User $user, Request $request)
     {
         try {
-            
+
             $existingDevice = Device::where('device_token', $request->device_token)->first();
 
             if ($existingDevice) {
-                
+
                 $existingDevice->update([
                     'user_id' => $user->id,
                     'device_type' => $request->device_type ?? 'android',
@@ -497,7 +497,7 @@ class AuthController extends Controller
                     'last_used_at' => now(),
                 ]);
             } else {
-                
+
                 Device::create([
                     'user_id' => $user->id,
                     'device_token' => $request->device_token,
@@ -510,7 +510,7 @@ class AuthController extends Controller
                 ]);
             }
         } catch (\Exception $e) {
-            
+
             Log::error('Failed to register device during auth', [
                 'user_id' => $user->id,
                 'device_token' => $request->device_token,
