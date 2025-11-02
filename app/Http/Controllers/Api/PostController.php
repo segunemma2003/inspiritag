@@ -14,6 +14,7 @@ use App\Services\FirebaseNotificationService;
 use App\Services\S3Service;
 use App\Services\PresignedUrlService;
 use App\Services\UserTaggingService;
+use App\Services\CacheHelperService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -27,18 +28,18 @@ class PostController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
-        $perPage = min($request->get('per_page', 20), 50); 
+        $perPage = min($request->get('per_page', 20), 50);
 
-        
+
         $tags = $request->get('tags', []);
         $creators = $request->get('creators', []);
         $categories = $request->get('categories', []);
         $search = $request->get('search', '');
         $mediaType = $request->get('media_type', '');
-        $sortBy = $request->get('sort_by', 'created_at'); 
-        $sortOrder = $request->get('sort_order', 'desc'); 
+        $sortBy = $request->get('sort_by', 'created_at');
+        $sortOrder = $request->get('sort_order', 'desc');
 
-        
+
         $filterKey = md5(serialize([
             'tags' => $tags,
             'creators' => $creators,
@@ -51,23 +52,23 @@ class PostController extends Controller
 
         $cacheKey = "posts_filtered_{$user->id}_{$filterKey}_page_{$request->get('page', 1)}_per_{$perPage}";
 
-        
+
         $posts = Cache::remember($cacheKey, 120, function () use ($user, $perPage, $tags, $creators, $categories, $search, $mediaType, $sortBy, $sortOrder) {
             $query = Post::query();
 
-            
+
             $followingIds = $user->following()->pluck('users.id');
-            $followingIds[] = $user->id; 
+            $followingIds[] = $user->id;
 
-            
-            
 
-            
+
+
+
             if (!empty($categories)) {
                 $query->whereIn('category_id', $categories);
             }
 
-            
+
             if (!empty($creators)) {
                 $query->whereHas('user', function ($q) use ($creators) {
                     $q->whereIn('username', $creators)
@@ -75,12 +76,12 @@ class PostController extends Controller
                 });
             }
 
-            
+
             if (!empty($mediaType)) {
                 $query->where('media_type', $mediaType);
             }
 
-            
+
             if (!empty($search)) {
                 $query->where(function ($q) use ($search) {
                     $q->where('caption', 'like', '%' . $search . '%')
@@ -92,7 +93,7 @@ class PostController extends Controller
                 });
             }
 
-            
+
             if (!empty($tags)) {
                 $query->whereHas('tags', function ($q) use ($tags) {
                     $q->whereIn('name', $tags)
@@ -100,7 +101,7 @@ class PostController extends Controller
                 });
             }
 
-            
+
             $validSortFields = ['created_at', 'likes_count', 'saves_count', 'comments_count'];
             $sortField = in_array($sortBy, $validSortFields) ? $sortBy : 'created_at';
             $sortDirection = in_array($sortOrder, ['asc', 'desc']) ? $sortOrder : 'desc';
@@ -116,7 +117,7 @@ class PostController extends Controller
                 ->paginate($perPage);
         });
 
-        
+
         $postIds = $posts->pluck('id');
         $userLikes = Like::where('user_id', $user->id)
             ->whereIn('post_id', $postIds)
@@ -152,7 +153,7 @@ class PostController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'caption' => 'nullable|string|max:2000',
-            'media' => 'required|file|mimes:jpeg,png,jpg,gif,mp4,mov,avi|max:50000', 
+            'media' => 'required|file|mimes:jpeg,png,jpg,gif,mp4,mov,avi|max:50000',
             'category_id' => 'required|exists:categories,id',
             'tags' => 'nullable|array',
             'tags.*' => 'string|max:50',
@@ -174,7 +175,7 @@ class PostController extends Controller
         $mediaType = $file->getMimeType();
         $isVideo = str_starts_with($mediaType, 'video/');
 
-        
+
         $uploadResult = S3Service::uploadWithCDN($file, 'posts');
 
         $post = Post::create([
@@ -187,7 +188,7 @@ class PostController extends Controller
             'is_public' => true,
         ]);
 
-        
+
         if ($request->tags) {
             foreach ($request->tags as $tagName) {
                 $tag = Tag::firstOrCreate(
@@ -199,7 +200,7 @@ class PostController extends Controller
             }
         }
 
-        
+
         $taggedUsers = [];
         if ($request->tagged_users && !empty($request->tagged_users)) {
             $userTaggingService = new UserTaggingService();
@@ -209,7 +210,7 @@ class PostController extends Controller
             }
         }
 
-        
+
         if ($request->caption) {
             $userTaggingService = new UserTaggingService();
             $captionUserIds = $userTaggingService->parseUserTagsFromCaption($request->caption);
@@ -221,7 +222,7 @@ class PostController extends Controller
             }
         }
 
-        
+
         $followers = $user->followers;
         if ($followers->isNotEmpty()) {
             $firebaseService = new FirebaseNotificationService();
@@ -269,7 +270,7 @@ class PostController extends Controller
             ]);
             $post->increment('likes_count');
 
-            
+
             if ($post->user_id !== $user->id) {
                 $postOwner = User::find($post->user_id);
                 $firebaseService = new FirebaseNotificationService();
@@ -308,7 +309,7 @@ class PostController extends Controller
             ]);
             $post->increment('saves_count');
 
-            
+
             if ($post->user_id !== $user->id) {
                 $postOwner = User::find($post->user_id);
                 $firebaseService = new FirebaseNotificationService();
@@ -340,7 +341,7 @@ class PostController extends Controller
         $user = $request->user();
         $platform = $request->get('platform', 'copy_link');
 
-        
+
         $existingShare = Share::where('user_id', $user->id)
             ->where('post_id', $post->id)
             ->where('platform', $platform)
@@ -353,17 +354,17 @@ class PostController extends Controller
             ], 400);
         }
 
-        
+
         Share::create([
             'user_id' => $user->id,
             'post_id' => $post->id,
             'platform' => $platform,
         ]);
 
-        
+
         $post->increment('shares_count');
 
-        
+
         if ($post->user_id !== $user->id) {
             $postOwner = User::find($post->user_id);
             if ($postOwner && $postOwner->notifications_enabled) {
@@ -394,13 +395,17 @@ class PostController extends Controller
             ], 403);
         }
 
-        
+
         if ($post->media_url) {
             $path = str_replace(config('filesystems.disks.s3.url'), '', $post->media_url);
             S3Service::deleteFile($path);
         }
 
+        $postId = $post->id;
+        $userId = $post->user_id;
         $post->delete();
+
+        CacheHelperService::clearPostCaches($postId, $userId);
 
         return response()->json([
             'success' => true,
@@ -411,7 +416,7 @@ class PostController extends Controller
     public function search(Request $request)
     {
         $query = $request->get('q');
-        $type = $request->get('type', 'posts'); 
+        $type = $request->get('type', 'posts');
 
         if ($type === 'posts') {
             $posts = Post::with(['user', 'category', 'tags'])
@@ -465,7 +470,7 @@ class PostController extends Controller
             ->orderBy('created_at', 'desc')
             ->paginate($perPage);
 
-            
+
             if ($posts->count() > 0) {
                 $postIds = $posts->pluck('id')->toArray();
                 $userLikes = Like::where('user_id', $user->id)
@@ -475,7 +480,7 @@ class PostController extends Controller
 
                 $posts->getCollection()->transform(function ($post) use ($userLikes) {
                     $post->is_liked = in_array($post->id, $userLikes);
-                    $post->is_saved = true; 
+                    $post->is_saved = true;
                     return $post;
                 });
             }
@@ -508,7 +513,7 @@ class PostController extends Controller
             ->orderBy('created_at', 'desc')
             ->paginate($perPage);
 
-            
+
             if ($posts->count() > 0) {
                 $postIds = $posts->pluck('id')->toArray();
                 $userSaves = Save::where('user_id', $user->id)
@@ -517,7 +522,7 @@ class PostController extends Controller
                     ->toArray();
 
                 $posts->getCollection()->transform(function ($post) use ($userSaves) {
-                    $post->is_liked = true; 
+                    $post->is_liked = true;
                     $post->is_saved = in_array($post->id, $userSaves);
                     return $post;
                 });
@@ -586,7 +591,7 @@ class PostController extends Controller
         Log::info('getSimpleUploadUrl method called', ['request' => $request->all()]);
 
         try {
-            
+
             $presignedService = new PresignedUrlService(new S3Service());
             $result = $presignedService->generateUploadUrl(
                 'posts/test_' . time() . '.jpg',
@@ -639,7 +644,7 @@ class PostController extends Controller
         }
 
         try {
-            
+
             $token = $request->bearerToken();
             if (!$token) {
                 return response()->json([
@@ -665,12 +670,12 @@ class PostController extends Controller
             $contentType = $request->content_type;
             $fileSize = $request->file_size;
 
-            
+
             $extension = pathinfo($filename, PATHINFO_EXTENSION);
             $uniqueFilename = time() . '_' . $user->id . '_' . Str::random(10) . '.' . $extension;
             $s3Path = 'posts/' . $uniqueFilename;
 
-            
+
             $s3Service = new S3Service();
             $presignedUrl = $s3Service->getTemporaryUrl($s3Path, now()->addMinutes(15), 'PUT', [
                 'Content-Type' => $contentType,
@@ -683,7 +688,7 @@ class PostController extends Controller
                     'upload_url' => $presignedUrl,
                     'file_path' => $s3Path,
                     'file_url' => "https://{$bucket}.s3.{$region}.amazonaws.com/{$s3Path}",
-                    'expires_in' => 900, 
+                    'expires_in' => 900,
                     'file_size' => $fileSize,
                     'content_type' => $contentType,
                 ]
@@ -739,7 +744,7 @@ class PostController extends Controller
         $contentType = $request->content_type;
         $fileSize = $request->file_size;
 
-        
+
         $extension = pathinfo($filename, PATHINFO_EXTENSION);
         $uniqueFilename = time() . '_' . $user->id . '_' . Str::random(10) . '.' . $extension;
         $s3Path = 'posts/' . $uniqueFilename;
@@ -749,7 +754,7 @@ class PostController extends Controller
             'content_type' => $contentType
         ]);
 
-        
+
         $presignedUrl = S3Service::getTemporaryUrl(
             $s3Path,
             now()->addMinutes(15),
@@ -797,7 +802,7 @@ class PostController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'file_path' => 'required|string',
-            'thumbnail_path' => 'nullable|string', 
+            'thumbnail_path' => 'nullable|string',
             'caption' => 'nullable|string|max:2000',
             'category_id' => 'required|exists:categories,id',
             'tags' => 'nullable|array',
@@ -818,7 +823,7 @@ class PostController extends Controller
         $filePath = $request->file_path;
         $thumbnailPath = $request->thumbnail_path;
 
-        
+
         if (!S3Service::exists($filePath)) {
             return response()->json([
                 'success' => false,
@@ -826,7 +831,7 @@ class PostController extends Controller
             ], 404);
         }
 
-        
+
         if ($thumbnailPath && !S3Service::exists($thumbnailPath)) {
             return response()->json([
                 'success' => false,
@@ -834,16 +839,16 @@ class PostController extends Controller
             ], 404);
         }
 
-        
+
         $extension = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
         $isVideo = in_array($extension, ['mp4', 'mov', 'avi', 'mkv', 'webm']);
         $mediaType = $isVideo ? 'video' : 'image';
 
-        
+
         $mediaUrl = S3Service::getUrl($filePath);
         $thumbnailUrl = $thumbnailPath ? S3Service::getUrl($thumbnailPath) : null;
 
-        
+
         if ($isVideo && !$thumbnailUrl) {
             $thumbnailUrl = 'https://via.placeholder.com/800x600/cccccc/666666?text=Video+Thumbnail';
         }
@@ -859,7 +864,7 @@ class PostController extends Controller
             'is_public' => true,
         ]);
 
-        
+
         if ($request->tags) {
             foreach ($request->tags as $tagName) {
                 $tag = Tag::firstOrCreate(
@@ -871,7 +876,7 @@ class PostController extends Controller
             }
         }
 
-        
+
         $followers = $user->followers()->pluck('users.id');
         if ($followers->isNotEmpty()) {
             $firebaseService = new FirebaseNotificationService();
@@ -897,8 +902,8 @@ class PostController extends Controller
         $validator = Validator::make($request->all(), [
             'filename' => 'required|string|max:255',
             'content_type' => 'required|string|in:image/jpeg,image/png,image/gif,video/mp4,video/mov,video/avi',
-            'total_size' => 'required|integer|min:1|max:2147483648', 
-            'chunk_size' => 'required|integer|min:5242880|max:104857600', 
+            'total_size' => 'required|integer|min:1|max:2147483648',
+            'chunk_size' => 'required|integer|min:5242880|max:104857600',
         ]);
 
         if ($validator->fails()) {
@@ -915,15 +920,15 @@ class PostController extends Controller
         $totalSize = $request->total_size;
         $chunkSize = $request->chunk_size;
 
-        
+
         $extension = pathinfo($filename, PATHINFO_EXTENSION);
         $uniqueFilename = time() . '_' . $user->id . '_' . Str::random(10) . '.' . $extension;
         $s3Path = 'posts/' . $uniqueFilename;
 
-        
+
         $totalChunks = ceil($totalSize / $chunkSize);
 
-        
+
         $chunkUrls = [];
         for ($i = 0; $i < $totalChunks; $i++) {
             $chunkPath = $s3Path . '.part' . $i;
@@ -946,7 +951,7 @@ class PostController extends Controller
                 'total_chunks' => $totalChunks,
                 'chunk_size' => $chunkSize,
                 'chunk_urls' => $chunkUrls,
-                'expires_in' => 3600, 
+                'expires_in' => 3600,
             ]
         ]);
     }
@@ -973,7 +978,7 @@ class PostController extends Controller
         $totalChunks = $request->total_chunks;
 
         try {
-            
+
             for ($i = 0; $i < $totalChunks; $i++) {
                 $chunkPath = $filePath . '.part' . $i;
                 if (!S3Service::exists($chunkPath)) {
@@ -984,9 +989,9 @@ class PostController extends Controller
                 }
             }
 
-            
-            
-            
+
+
+
 
             return response()->json([
                 'success' => true,
@@ -1018,7 +1023,7 @@ class PostController extends Controller
             $userTaggingService = new UserTaggingService();
             $posts = $userTaggingService->getTaggedPosts($user, $perPage);
 
-            
+
             if ($posts->count() > 0) {
                 $postIds = $posts->pluck('id');
                 $userLikes = Like::where('user_id', $user->id)
@@ -1033,7 +1038,7 @@ class PostController extends Controller
                 $posts->getCollection()->transform(function ($post) use ($userLikes, $userSaves) {
                     $post->is_liked = in_array($post->id, $userLikes);
                     $post->is_saved = in_array($post->id, $userSaves);
-                    $post->is_tagged = true; 
+                    $post->is_tagged = true;
                     return $post;
                 });
             }
@@ -1197,13 +1202,13 @@ class PostController extends Controller
         try {
             $perPage = min($request->get('per_page', 20), 50);
 
-            
+
             $likes = $post->likes()
                 ->with(['user:id,name,full_name,username,profile_picture,bio,profession,is_business'])
                 ->orderBy('created_at', 'desc')
                 ->paginate($perPage);
 
-            
+
             $likes->getCollection()->transform(function ($like) {
                 return [
                     'id' => $like->id,
@@ -1237,13 +1242,13 @@ class PostController extends Controller
         try {
             $perPage = min($request->get('per_page', 20), 50);
 
-            
+
             $saves = $post->saves()
                 ->with(['user:id,name,full_name,username,profile_picture,bio,profession,is_business'])
                 ->orderBy('created_at', 'desc')
                 ->paginate($perPage);
 
-            
+
             $saves->getCollection()->transform(function ($save) {
                 return [
                     'id' => $save->id,

@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Models\Device;
 use App\Models\Otp;
 use App\Notifications\SendOtpNotification;
+use App\Services\CacheHelperService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
@@ -370,6 +371,7 @@ class AuthController extends Controller
     {
         $user = $request->user();
 
+        $userId = $user->id;
         
         $user->posts()->delete();
         $user->likes()->delete();
@@ -378,8 +380,10 @@ class AuthController extends Controller
         $user->bookings()->delete();
         $user->businessAccount()->delete();
 
-        
         $user->delete();
+
+        CacheHelperService::clearUserCaches($userId);
+        CacheHelperService::clearPostCaches(null, $userId);
 
         return response()->json([
             'success' => true,

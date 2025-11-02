@@ -87,7 +87,7 @@ class SearchController extends Controller
                 $queryBuilder->where('created_at', '<=', $dateTo);
             }
 
-            
+
             $queryBuilder->orderBy($sortBy, $sortOrder);
 
             return $queryBuilder->paginate($perPage);
@@ -168,7 +168,7 @@ class SearchController extends Controller
                       ->orWhere('bio', 'like', "%{$query}%");
                 });
 
-            
+
             if ($profession) {
                 $queryBuilder->where('profession', 'like', "%{$profession}%");
             }
@@ -185,7 +185,7 @@ class SearchController extends Controller
                 });
             }
 
-            
+
             $queryBuilder->orderBy($sortBy, $sortOrder);
 
             return $queryBuilder->paginate($perPage);
@@ -246,7 +246,7 @@ class SearchController extends Controller
                       ->orWhere('bio', 'like', "%{$query}%");
                 });
 
-            
+
             if ($profession) {
                 $queryBuilder->where('profession', 'like', "%{$profession}%");
             }
@@ -255,7 +255,7 @@ class SearchController extends Controller
                 $queryBuilder->where('is_business', $isBusiness);
             }
 
-            
+
             $queryBuilder->orderBy($sortBy, $sortOrder);
 
             return $queryBuilder->paginate($perPage);
@@ -316,7 +316,7 @@ class SearchController extends Controller
                       ->orWhere('bio', 'like', "%{$query}%");
                 });
 
-            
+
             if ($profession) {
                 $queryBuilder->where('profession', 'like', "%{$profession}%");
             }
@@ -325,7 +325,7 @@ class SearchController extends Controller
                 $queryBuilder->where('is_business', $isBusiness);
             }
 
-            
+
             $queryBuilder->orderBy($sortBy, $sortOrder);
 
             return $queryBuilder->paginate($perPage);

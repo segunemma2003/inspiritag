@@ -36,18 +36,18 @@ class UserController extends Controller
     {
         $authenticatedUser = $request->user();
 
-        
+
         $user->load(['posts' => function ($query) {
             $query->where('is_public', true)->latest();
         }]);
 
-        
+
         $isFollowed = false;
         if ($authenticatedUser && $authenticatedUser->id !== $user->id) {
             $isFollowed = $authenticatedUser->following()->where('following_id', $user->id)->exists();
         }
 
-        
+
         $userData = $user->toArray();
         $userData['is_followed'] = $isFollowed;
 
@@ -61,31 +61,31 @@ class UserController extends Controller
     {
         $perPage = min($request->get('per_page', 20), 50);
 
-        
+
         $posts = $user->posts()
             ->where('is_public', true)
             ->with(['user:id,name,full_name,username,profile_picture', 'category:id,name,color,icon', 'tags:id,name,slug'])
             ->orderBy('created_at', 'desc')
             ->paginate($perPage);
 
-        
+
         $authenticatedUser = $request->user();
         if ($authenticatedUser) {
             $postIds = $posts->pluck('id');
 
-            
+
             $likedPostIds = $authenticatedUser->likes()
                 ->whereIn('post_id', $postIds)
                 ->pluck('post_id')
                 ->toArray();
 
-            
+
             $savedPostIds = $authenticatedUser->saves()
                 ->whereIn('post_id', $postIds)
                 ->pluck('post_id')
                 ->toArray();
 
-            
+
             $posts->getCollection()->transform(function ($post) use ($likedPostIds, $savedPostIds) {
                 $post->is_liked = in_array($post->id, $likedPostIds);
                 $post->is_saved = in_array($post->id, $savedPostIds);
@@ -122,23 +122,23 @@ class UserController extends Controller
 
         $data = $request->only(['full_name', 'username', 'bio', 'profession', 'interests']);
 
-        
+
         Log::info("Request data: " . json_encode($request->all()));
         Log::info("Has file profile_picture: " . ($request->hasFile('profile_picture') ? 'true' : 'false'));
         Log::info("Files in request: " . json_encode(array_keys($request->allFiles())));
         if ($request->hasFile('profile_picture')) {
             Log::info("Profile picture upload started for user: " . $user->id);
             try {
-                
+
                 if ($user->profile_picture) {
                     try {
-                        
+
                         $s3Url = config('filesystems.disks.s3.url');
                         $cdnUrl = config('filesystems.disks.s3.cdn_url');
 
                         $oldPath = $user->profile_picture;
 
-                        
+
                         if ($s3Url) {
                             $oldPath = str_replace($s3Url, '', $oldPath);
                         }
@@ -146,7 +146,7 @@ class UserController extends Controller
                             $oldPath = str_replace($cdnUrl, '', $oldPath);
                         }
 
-                        
+
                         $oldPath = ltrim($oldPath, '/');
                         $oldPath = preg_replace('#^https?://[^/]+/#', '', $oldPath);
 
@@ -154,12 +154,12 @@ class UserController extends Controller
                             Storage::disk('s3')->delete($oldPath);
                         }
                     } catch (\Exception $e) {
-                        
+
                         Log::warning("Failed to delete old profile picture: " . $e->getMessage());
                     }
                 }
 
-                
+
                 $file = $request->file('profile_picture');
                 Log::info("File details: " . json_encode([
                     'original_name' => $file->getClientOriginalName(),
@@ -172,16 +172,16 @@ class UserController extends Controller
                 $path = $file->storeAs('profiles', $filename, 's3');
                 Log::info("File stored at path: " . $path);
 
-                
+
                 $cdnUrl = config('filesystems.disks.s3.cdn_url');
                 if ($cdnUrl) {
-                    
+
                     if (!str_starts_with($cdnUrl, 'http://') && !str_starts_with($cdnUrl, 'https://')) {
                         $cdnUrl = 'https://' . $cdnUrl;
                     }
                     $data['profile_picture'] = rtrim($cdnUrl, '/') . '/' . ltrim($path, '/');
                 } else {
-                    
+
                     $bucket = config('filesystems.disks.s3.bucket');
                     $region = config('filesystems.disks.s3.region');
                     $data['profile_picture'] = "https://{$bucket}.s3.{$region}.amazonaws.com/{$path}";
@@ -234,7 +234,7 @@ class UserController extends Controller
             'following_id' => $user->id,
         ]);
 
-        
+
         $firebaseService = new FirebaseNotificationService();
         $firebaseService->sendFollowNotification($follower, $user);
 
@@ -272,7 +272,7 @@ class UserController extends Controller
         $authenticatedUser = $request->user();
         $followers = $user->followers()->paginate(20);
 
-        
+
         if ($authenticatedUser) {
             $followerIds = $followers->pluck('id');
             $followedIds = $authenticatedUser->following()
@@ -280,7 +280,7 @@ class UserController extends Controller
                 ->pluck('following_id')
                 ->toArray();
 
-            
+
             $followers->getCollection()->transform(function ($follower) use ($followedIds) {
                 $follower->is_followed = in_array($follower->id, $followedIds);
                 return $follower;
@@ -298,7 +298,7 @@ class UserController extends Controller
         $authenticatedUser = $request->user();
         $following = $user->following()->paginate(20);
 
-        
+
         if ($authenticatedUser) {
             $followingIds = $following->pluck('id');
             $followedIds = $authenticatedUser->following()
@@ -306,7 +306,7 @@ class UserController extends Controller
                 ->pluck('following_id')
                 ->toArray();
 
-            
+
             $following->getCollection()->transform(function ($followedUser) use ($followedIds) {
                 $followedUser->is_followed = in_array($followedUser->id, $followedIds);
                 return $followedUser;
