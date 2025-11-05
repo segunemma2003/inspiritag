@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Services\SubscriptionService;
+use App\Services\AppleInAppPurchaseService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
@@ -13,6 +14,7 @@ class SubscriptionController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'payment_id' => 'nullable|string|max:255',
+            'apple_receipt' => 'nullable|string',
         ]);
 
         if ($validator->fails()) {
@@ -32,7 +34,11 @@ class SubscriptionController extends Controller
             ], 400);
         }
 
-        $result = SubscriptionService::upgradeToProfessional($user, $request->payment_id);
+        if ($request->apple_receipt) {
+            $result = AppleInAppPurchaseService::processSubscriptionReceipt($user, $request->apple_receipt);
+        } else {
+            $result = SubscriptionService::upgradeToProfessional($user, $request->payment_id);
+        }
 
         if ($result['success']) {
             return response()->json($result, 200);
@@ -45,6 +51,7 @@ class SubscriptionController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'payment_id' => 'nullable|string|max:255',
+            'apple_receipt' => 'nullable|string',
         ]);
 
         if ($validator->fails()) {
@@ -57,13 +64,41 @@ class SubscriptionController extends Controller
 
         $user = $request->user();
 
-        $result = SubscriptionService::renewSubscription($user, $request->payment_id);
+        if ($request->apple_receipt) {
+            $result = AppleInAppPurchaseService::processSubscriptionReceipt($user, $request->apple_receipt);
+        } else {
+            $result = SubscriptionService::renewSubscription($user, $request->payment_id);
+        }
 
         if ($result['success']) {
             return response()->json($result, 200);
         }
 
         return response()->json($result, 500);
+    }
+
+    public function validateAppleReceipt(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'receipt_data' => 'required|string',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation errors',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        $user = $request->user();
+        $result = AppleInAppPurchaseService::processSubscriptionReceipt($user, $request->receipt_data);
+
+        if ($result['success']) {
+            return response()->json($result, 200);
+        }
+
+        return response()->json($result, 400);
     }
 
     public function cancel(Request $request)

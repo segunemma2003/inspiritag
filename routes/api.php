@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\TestController;
 use App\Http\Controllers\Api\SubscriptionController;
 use App\Http\Controllers\Api\AnalyticsController;
 use App\Http\Controllers\Api\SearchController;
+use App\Http\Controllers\Api\AppleWebhookController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -25,6 +26,9 @@ use Illuminate\Support\Facades\Route;
 | be assigned to the "api" middleware group. Make something great!
 |
 */
+
+// Apple webhook (no auth required - Apple sends notifications)
+Route::post('/webhooks/apple/subscription', [AppleWebhookController::class, 'handleStatusUpdate']);
 
 // Health check endpoint
 Route::get('/health', function () {
@@ -278,6 +282,7 @@ Route::post('/working-upload-url', [PostController::class, 'getWorkingUploadUrl'
     Route::post('/subscription/cancel', [SubscriptionController::class, 'cancel']);
     Route::get('/subscription/status', [SubscriptionController::class, 'status']);
     Route::get('/subscription/plan-info', [SubscriptionController::class, 'planInfo']);
+    Route::post('/subscription/validate-apple-receipt', [SubscriptionController::class, 'validateAppleReceipt']);
 
     // Analytics routes
     Route::get('/analytics/user', [AnalyticsController::class, 'userAnalytics']);

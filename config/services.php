@@ -38,4 +38,9 @@ return [
         'messaging_sender_id' => env('FIREBASE_MESSAGING_SENDER_ID'),
     ],
 
+    'apple' => [
+        'shared_secret' => env('APPLE_SHARED_SECRET'),
+        'bundle_id' => env('APPLE_BUNDLE_ID'),
+    ],
+
 ];
