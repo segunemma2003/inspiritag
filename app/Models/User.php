@@ -28,11 +28,25 @@ class User extends Authenticatable
         'profession',
         'is_business',
         'is_admin',
+        'is_professional',
         'last_seen',
         'interests',
         'notification_preferences',
         'fcm_token',
         'notifications_enabled',
+        'subscription_started_at',
+        'subscription_expires_at',
+        'subscription_status',
+        'subscription_payment_id',
+        'website',
+        'booking_link',
+        'whatsapp_link',
+        'linkedin_link',
+        'instagram_link',
+        'tiktok_link',
+        'snapchat_link',
+        'facebook_link',
+        'twitter_link',
     ];
 
     /**
@@ -57,7 +71,10 @@ class User extends Authenticatable
             'password' => 'hashed',
             'is_business' => 'boolean',
             'is_admin' => 'boolean',
+            'is_professional' => 'boolean',
             'last_seen' => 'datetime',
+            'subscription_started_at' => 'datetime',
+            'subscription_expires_at' => 'datetime',
             'interests' => 'array',
             'notification_preferences' => 'array',
             'notifications_enabled' => 'boolean',
@@ -123,6 +140,11 @@ class User extends Authenticatable
     public function otps()
     {
         return $this->hasMany(Otp::class, 'email', 'email');
+    }
+
+    public function postAnalytics()
+    {
+        return $this->hasMany(PostAnalytic::class);
     }
 
     /**

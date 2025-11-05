@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Models\Follow;
 use App\Models\Notification;
 use App\Services\FirebaseNotificationService;
+use App\Services\SubscriptionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
@@ -748,6 +749,68 @@ class UserController extends Controller
         return response()->json([
             'success' => true,
             'data' => $users
+        ]);
+    }
+
+    public function updateSocialLinks(Request $request)
+    {
+        $user = $request->user();
+
+        if (!SubscriptionService::isProfessional($user)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Professional subscription required to update social links'
+            ], 403);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'website' => 'nullable|url|max:255',
+            'booking_link' => 'nullable|url|max:255',
+            'whatsapp_link' => 'nullable|url|max:255',
+            'linkedin_link' => 'nullable|url|max:255',
+            'instagram_link' => 'nullable|url|max:255',
+            'tiktok_link' => 'nullable|url|max:255',
+            'snapchat_link' => 'nullable|url|max:255',
+            'facebook_link' => 'nullable|url|max:255',
+            'twitter_link' => 'nullable|url|max:255',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation errors',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        $data = $request->only([
+            'website',
+            'booking_link',
+            'whatsapp_link',
+            'linkedin_link',
+            'instagram_link',
+            'tiktok_link',
+            'snapchat_link',
+            'facebook_link',
+            'twitter_link',
+        ]);
+
+        $user->update($data);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Social links updated successfully',
+            'data' => $user->only([
+                'website',
+                'booking_link',
+                'whatsapp_link',
+                'linkedin_link',
+                'instagram_link',
+                'tiktok_link',
+                'snapchat_link',
+                'facebook_link',
+                'twitter_link',
+            ])
         ]);
     }
 }

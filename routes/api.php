@@ -6,8 +6,12 @@ use App\Http\Controllers\Api\PostController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\BusinessAccountController;
 use App\Http\Controllers\Api\NotificationController;
+use App\Http\Controllers\Api\DeviceController;
 use App\Http\Controllers\Api\DebugController;
 use App\Http\Controllers\Api\TestController;
+use App\Http\Controllers\Api\SubscriptionController;
+use App\Http\Controllers\Api\AnalyticsController;
+use App\Http\Controllers\Api\SearchController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -93,6 +97,7 @@ Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
     Route::get('/users/{user}', [UserController::class, 'show']);
     Route::get('/users/{user}/posts', [UserController::class, 'posts']);
     Route::post('/users/profile', [UserController::class, 'updateProfile']);
+    Route::post('/users/social-links', [UserController::class, 'updateSocialLinks']);
     Route::post('/users/{user}/follow', [UserController::class, 'follow']);
     Route::delete('/users/{user}/unfollow', [UserController::class, 'unfollow']);
     Route::get('/users/{user}/followers', [UserController::class, 'followers']);
@@ -266,6 +271,18 @@ Route::post('/working-upload-url', [PostController::class, 'getWorkingUploadUrl'
         Route::post('/test', [App\Http\Controllers\Api\NotificationController::class, 'sendTest']);
     });
 
+
+    // Subscription routes
+    Route::post('/subscription/upgrade', [SubscriptionController::class, 'upgrade']);
+    Route::post('/subscription/renew', [SubscriptionController::class, 'renew']);
+    Route::post('/subscription/cancel', [SubscriptionController::class, 'cancel']);
+    Route::get('/subscription/status', [SubscriptionController::class, 'status']);
+    Route::get('/subscription/plan-info', [SubscriptionController::class, 'planInfo']);
+
+    // Analytics routes
+    Route::get('/analytics/user', [AnalyticsController::class, 'userAnalytics']);
+    Route::get('/analytics/post/{post}', [AnalyticsController::class, 'postAnalytics']);
+    Route::post('/analytics/post/{post}/track-view', [AnalyticsController::class, 'trackView']);
 
     // Admin routes
     Route::middleware('admin')->group(function () {

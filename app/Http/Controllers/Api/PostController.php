@@ -15,6 +15,8 @@ use App\Services\S3Service;
 use App\Services\PresignedUrlService;
 use App\Services\UserTaggingService;
 use App\Services\CacheHelperService;
+use App\Services\SubscriptionService;
+use App\Services\AnalyticsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -56,6 +58,10 @@ class PostController extends Controller
         $posts = Cache::remember($cacheKey, 120, function () use ($user, $perPage, $tags, $creators, $categories, $search, $mediaType, $sortBy, $sortOrder) {
             $query = Post::query();
 
+            $query->where(function($q) {
+                $q->where('is_public', true)
+                  ->orWhere('is_ads', true);
+            });
 
             $followingIds = $user->following()->pluck('users.id');
             $followingIds[] = $user->id;
@@ -160,6 +166,7 @@ class PostController extends Controller
             'tagged_users' => 'nullable|array',
             'tagged_users.*' => 'integer|exists:users,id',
             'location' => 'nullable|string|max:255',
+            'is_ads' => 'nullable|boolean',
         ]);
 
         if ($validator->fails()) {
@@ -178,6 +185,15 @@ class PostController extends Controller
 
         $uploadResult = S3Service::uploadWithCDN($file, 'posts');
 
+        $isAds = $request->get('is_ads', false);
+
+        if ($isAds && !SubscriptionService::isProfessional($user)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Professional subscription required to create ads posts'
+            ], 403);
+        }
+
         $post = Post::create([
             'user_id' => $user->id,
             'category_id' => $request->category_id,
@@ -186,6 +202,7 @@ class PostController extends Controller
             'media_type' => $isVideo ? 'video' : 'image',
             'location' => $request->location,
             'is_public' => true,
+            'is_ads' => $isAds,
         ]);
 
 
@@ -203,6 +220,21 @@ class PostController extends Controller
 
         $taggedUsers = [];
         if ($request->tagged_users && !empty($request->tagged_users)) {
+            $isProfessional = SubscriptionService::isProfessional($user);
+
+            foreach ($request->tagged_users as $taggedUserId) {
+                $taggedUser = User::find($taggedUserId);
+
+                if ($taggedUser && $taggedUser->is_professional) {
+                    if (!$isProfessional) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'Professional subscription required to tag other professionals'
+                        ], 403);
+                    }
+                }
+            }
+
             $userTaggingService = new UserTaggingService();
             $tagResult = $userTaggingService->tagUsersInPost($post, $request->tagged_users, $user);
             if ($tagResult['success']) {
@@ -236,8 +268,14 @@ class PostController extends Controller
         ], 201);
     }
 
-    public function show(Post $post)
+    public function show(Request $request, Post $post)
     {
+        $user = $request->user();
+
+        if ($post->is_ads || $post->is_public) {
+            AnalyticsService::trackView($post, $user, $request);
+        }
+
         $post->load(['user', 'category', 'tags', 'likes', 'saves', 'shares', 'taggedUsers']);
 
         return response()->json([

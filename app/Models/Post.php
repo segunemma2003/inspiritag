@@ -19,10 +19,14 @@ class Post extends Model
         'media_metadata',
         'location',
         'is_public',
+        'is_ads',
         'likes_count',
         'saves_count',
         'comments_count',
         'shares_count',
+        'views_count',
+        'impressions_count',
+        'reach_count',
     ];
 
     protected function casts(): array
@@ -30,10 +34,14 @@ class Post extends Model
         return [
             'media_metadata' => 'array',
             'is_public' => 'boolean',
+            'is_ads' => 'boolean',
             'likes_count' => 'integer',
             'saves_count' => 'integer',
             'comments_count' => 'integer',
             'shares_count' => 'integer',
+            'views_count' => 'integer',
+            'impressions_count' => 'integer',
+            'reach_count' => 'integer',
         ];
     }
 
@@ -85,5 +93,10 @@ class Post extends Model
     public function isTaggedBy(User $user): bool
     {
         return $this->taggedUsers()->where('user_id', $user->id)->exists();
+    }
+
+    public function analytics(): HasMany
+    {
+        return $this->hasMany(PostAnalytic::class);
     }
 }
