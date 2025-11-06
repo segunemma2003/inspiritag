@@ -73,9 +73,10 @@ APPLE_BUNDLE_ID=com.yourcompany.yourapp
    https://your-api-domain.com/api/webhooks/apple/subscription
    ```
    
-   **Replace with your actual domain:**
-   - If using IP: `https://38.180.244.178/api/webhooks/apple/subscription`
-   - If using domain: `https://api.inspirtag.com/api/webhooks/apple/subscription`
+   **Your webhook URL:**
+   ```
+   https://api.inspirtag.com/api/webhooks/apple/subscription
+   ```
    
 4. Click **Save**
 

@@ -102,7 +102,7 @@ server {
 }
 ```
 
-**Replace `api.yourdomain.com` with your actual subdomain** (e.g., `api.inspirtag.com`)
+   **Using `api.inspirtag.com` as the subdomain**
 
 ### 2.2 Add HTTPS Configuration (Recommended)
 
