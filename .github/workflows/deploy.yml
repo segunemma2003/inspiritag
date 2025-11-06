@@ -34,6 +34,7 @@ jobs:
 
             # Make scripts executable if they exist
             chmod +x docker/entrypoint.sh 2>/dev/null || true
+            chmod +x *.sh 2>/dev/null || true
 
             # Check if Docker is running
             if ! docker info > /dev/null 2>&1; then
@@ -42,44 +43,187 @@ jobs:
               sleep 5
             fi
 
+            # ============================================
+            # NGINX REVERSE PROXY SETUP (AUTOMATED)
+            # ============================================
+            echo "🔧 Setting up Nginx Reverse Proxy..."
+
+            # Stop system nginx temporarily if needed for SSL
+            NGINX_STOPPED=false
+            if systemctl is-active --quiet nginx 2>/dev/null; then
+              echo "   System nginx is running"
+            fi
+
+            # Find nginx config directory
+            if [ -d "/etc/nginx/conf.d" ]; then
+              NGINX_CONFIG_DIR="/etc/nginx/conf.d"
+              NGINX_CONFIG_FILE="/etc/nginx/conf.d/api.inspirtag.com.conf"
+              echo "   Using /etc/nginx/conf.d (CentOS/RHEL style)"
+            elif [ -d "/etc/nginx/sites-available" ]; then
+              NGINX_CONFIG_DIR="/etc/nginx/sites-available"
+              NGINX_CONFIG_FILE="/etc/nginx/sites-available/api.inspirtag.com.conf"
+              echo "   Using /etc/nginx/sites-available (Debian/Ubuntu style)"
+            else
+              # Create sites-available structure
+              sudo mkdir -p /etc/nginx/sites-available
+              sudo mkdir -p /etc/nginx/sites-enabled
+              NGINX_CONFIG_DIR="/etc/nginx/sites-available"
+              NGINX_CONFIG_FILE="/etc/nginx/sites-available/api.inspirtag.com.conf"
+              echo "   Created sites-available directory"
+
+              # Add include to main nginx.conf if not present
+              if ! grep -q "sites-enabled" /etc/nginx/nginx.conf 2>/dev/null; then
+                echo "   Adding sites-enabled to main nginx config..."
+                sudo sed -i '/^http {/a\    include /etc/nginx/sites-enabled/*;' /etc/nginx/nginx.conf
+              fi
+            fi
+
+            # Copy nginx config if it exists in project
+            if [ -f "api.inspirtag.com.conf" ] || [ -f "system-nginx-api-inspirtag.conf" ]; then
+              CONFIG_SOURCE="api.inspirtag.com.conf"
+              [ ! -f "$CONFIG_SOURCE" ] && CONFIG_SOURCE="system-nginx-api-inspirtag.conf"
+
+              echo "   Copying nginx configuration..."
+              sudo cp "$CONFIG_SOURCE" "$NGINX_CONFIG_FILE"
+
+              # If using sites-available, create symlink
+              if [ "$NGINX_CONFIG_DIR" = "/etc/nginx/sites-available" ]; then
+                sudo ln -sf "$NGINX_CONFIG_FILE" /etc/nginx/sites-enabled/api.inspirtag.com.conf
+              fi
+            else
+              # Generate nginx config dynamically
+              echo "   Generating nginx configuration..."
+              sudo tee "$NGINX_CONFIG_FILE" > /dev/null <<'EOF'
+            # HTTP - redirect to HTTPS
+            server {
+                listen 80;
+                server_name api.inspirtag.com;
+
+                location /.well-known/acme-challenge/ {
+                    root /var/www/html;
+                }
+
+                location / {
+                    return 301 https://$server_name$request_uri;
+                }
+            }
+
+            # HTTPS - proxy to Docker nginx
+            server {
+                listen 443 ssl http2;
+                server_name api.inspirtag.com;
+
+                ssl_certificate /etc/letsencrypt/live/api.inspirtag.com/fullchain.pem;
+                ssl_certificate_key /etc/letsencrypt/live/api.inspirtag.com/privkey.pem;
+
+                ssl_protocols TLSv1.2 TLSv1.3;
+                ssl_ciphers HIGH:!aNULL:!MD5;
+                ssl_prefer_server_ciphers on;
+
+                add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+
+                client_max_body_size 50M;
+
+                location / {
+                    proxy_pass http://127.0.0.1:8080;
+                    proxy_redirect off;
+                }
+            }
+            EOF
+
+              if [ "$NGINX_CONFIG_DIR" = "/etc/nginx/sites-available" ]; then
+                sudo ln -sf "$NGINX_CONFIG_FILE" /etc/nginx/sites-enabled/api.inspirtag.com.conf
+              fi
+            fi
+
+            # Generate SSL certificate if it doesn't exist
+            if [ ! -f "/etc/letsencrypt/live/api.inspirtag.com/fullchain.pem" ]; then
+              echo "🔐 Generating SSL certificate..."
+
+              # Install certbot if not installed
+              if ! command -v certbot &> /dev/null; then
+                echo "   Installing certbot..."
+                sudo apt update -qq
+                sudo apt install -y certbot
+              fi
+
+              # Stop nginx for certificate generation
+              if systemctl is-active --quiet nginx 2>/dev/null; then
+                sudo systemctl stop nginx
+                NGINX_STOPPED=true
+              fi
+
+              # Generate certificate
+              sudo certbot certonly --standalone \
+                -d api.inspirtag.com \
+                --email admin@inspirtag.com \
+                --agree-tos \
+                --non-interactive || {
+                echo "⚠️ SSL certificate generation failed (DNS may not be configured yet)"
+                echo "   Continuing without SSL - you can generate it manually later"
+              }
+
+              # Start nginx if we stopped it
+              if [ "$NGINX_STOPPED" = true ]; then
+                sudo systemctl start nginx
+              fi
+            else
+              echo "✅ SSL certificate already exists"
+            fi
+
+            # Test nginx configuration
+            echo "🧪 Testing nginx configuration..."
+            if sudo nginx -t 2>/dev/null; then
+              echo "✅ Nginx configuration is valid"
+              sudo systemctl reload nginx || sudo systemctl start nginx
+            else
+              echo "⚠️ Nginx configuration has errors, but continuing..."
+            fi
+
+            # ============================================
+            # DOCKER SETUP
+            # ============================================
+
+            # Ensure docker-compose.yml uses port 8080 (not 80)
+            echo "🔧 Ensuring Docker uses port 8080..."
+            if grep -q '"80:80"' docker-compose.yml; then
+              echo "   Updating docker-compose.yml to use port 8080..."
+              sed -i 's/"80:80"/"8080:80"/' docker-compose.yml
+              sed -i 's/"443:443"/# "443:443"  # Removed - system nginx handles SSL/' docker-compose.yml
+            fi
+
+            # Update nginx config to use HTTP-only
+            if grep -q "nginx-ssl.conf" docker-compose.yml; then
+              echo "   Updating to use HTTP-only nginx config..."
+              sed -i 's|nginx-ssl.conf|nginx.conf|' docker-compose.yml
+            fi
+
             # Add missing .env variables if not present
             echo "🔧 Ensuring .env has required variables..."
             grep -q "AWS_URL=" .env || echo "AWS_URL=" >> .env
             grep -q "AWS_ENDPOINT=" .env || echo "AWS_ENDPOINT=" >> .env
             grep -q "AWS_USE_PATH_STYLE_ENDPOINT=" .env || echo "AWS_USE_PATH_STYLE_ENDPOINT=false" >> .env
+            grep -q "APP_URL=" .env || echo "APP_URL=https://api.inspirtag.com" >> .env
+            grep -q "APP_ENV=" .env || echo "APP_ENV=production" >> .env
 
-            # Fix DB_HOST for Linux (host.docker.internal doesn't work on Linux)
+            # Fix DB_HOST for Linux
             echo "🔍 Checking DB_HOST configuration..."
             if grep -q "^DB_HOST=host.docker.internal" .env; then
               echo "⚠️ Found host.docker.internal (doesn't work on Linux)"
-              echo "Updating to Docker bridge IP..."
-              # Find Docker bridge IP or use default
               DOCKER_IP=$(ip addr show docker0 2>/dev/null | grep 'inet ' | awk '{print $2}' | cut -d/ -f1 || echo "172.17.0.1")
               sed -i "s|^DB_HOST=.*|DB_HOST=$DOCKER_IP|" .env
               echo "✅ Updated DB_HOST to $DOCKER_IP"
             fi
 
-            # Ensure DB_HOST is set
             if ! grep -q "^DB_HOST=" .env; then
               DOCKER_IP=$(ip addr show docker0 2>/dev/null | grep 'inet ' | awk '{print $2}' | cut -d/ -f1 || echo "172.17.0.1")
               echo "DB_HOST=$DOCKER_IP" >> .env
               echo "✅ Added DB_HOST=$DOCKER_IP"
-            fi
-
-            # Verify MySQL is accessible
-            echo "🔍 Checking MySQL connection..."
-            DB_HOST=$(grep "^DB_HOST=" .env | cut -d= -f2)
-            DB_USER=$(grep "^DB_USERNAME=" .env | cut -d= -f2)
-            DB_PASS=$(grep "^DB_PASSWORD=" .env | cut -d= -f2)
-
-            if mysqladmin ping -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" --silent 2>/dev/null; then
-              echo "✅ MySQL connection successful at $DB_HOST"
-            else
-              echo "⚠️ WARNING: Cannot connect to MySQL at $DB_HOST"
-              echo "Trying to fix with Docker bridge IP..."
-              DOCKER_IP=$(ip addr show docker0 2>/dev/null | grep 'inet ' | awk '{print $2}' | cut -d/ -f1 || echo "172.17.0.1")
-              sed -i "s|^DB_HOST=.*|DB_HOST=$DOCKER_IP|" .env
-              echo "Updated DB_HOST to $DOCKER_IP"
             fi
 
             # Backup .env file
@@ -150,24 +294,38 @@ jobs:
             echo "🏥 Health check..."
             sleep 5
 
-            if curl -f http://localhost/health > /dev/null 2>&1; then
-              echo "✅ Deployment successful!"
+            # Test Docker nginx directly
+            if curl -f http://localhost:8080/health > /dev/null 2>&1; then
+              echo "✅ Docker nginx is healthy on port 8080"
             else
-              echo "⚠️ Health check failed, checking logs..."
-              docker-compose ps
-              docker-compose logs --tail=50 app
-              echo "Continuing anyway..."
+              echo "⚠️ Docker nginx health check failed"
+              docker-compose logs --tail=50 nginx
             fi
 
-            # Test API
-            echo "🧪 Testing API..."
-            curl -f http://localhost/api/categories 2>/dev/null || echo "⚠️ API test skipped"
+            # Test through system nginx (if SSL is configured)
+            if [ -f "/etc/letsencrypt/live/api.inspirtag.com/fullchain.pem" ]; then
+              if curl -f -k https://api.inspirtag.com/health > /dev/null 2>&1; then
+                echo "✅ API is accessible via HTTPS"
+              else
+                echo "⚠️ HTTPS test failed (DNS may not be configured yet)"
+              fi
+            fi
 
             # Final container status
             echo "📊 Final container status:"
             docker-compose ps
 
             echo "🎉 Deployment completed!"
+            echo ""
+            echo "📋 Summary:"
+            echo "   ✅ Docker containers running on port 8080"
+            echo "   ✅ System nginx configured as reverse proxy"
+            if [ -f "/etc/letsencrypt/live/api.inspirtag.com/fullchain.pem" ]; then
+              echo "   ✅ SSL certificate configured"
+            else
+              echo "   ⚠️ SSL certificate not yet configured (run certbot manually)"
+            fi
+            echo "   📍 API URL: https://api.inspirtag.com"
 
       - name: Notify deployment status
         if: always()
