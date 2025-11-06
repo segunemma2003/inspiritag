@@ -92,13 +92,8 @@ This guide walks you through setting up subscription products and server-to-serv
 3. For each environment, enter your webhook URL:
 
     ```
-    https://your-api-domain.com/api/webhooks/apple/subscription
+    https://api.inspirtag.com/api/webhooks/apple/subscription
     ```
-
-    **Replace `your-api-domain.com` with your actual API domain:**
-
-    - Example: `https://api.inspirtag.com/api/webhooks/apple/subscription`
-    - Example: `https://38.180.244.178/api/webhooks/apple/subscription` (if using IP)
 
 4. Click **Save**
 
