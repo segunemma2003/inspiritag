@@ -203,10 +203,19 @@ jobs:
             if command -v nginx &> /dev/null; then
               if sudo nginx -t 2>/dev/null; then
                 echo "✅ Nginx configuration is valid"
-                sudo systemctl reload nginx 2>/dev/null || sudo systemctl start nginx 2>/dev/null || true
+                echo "   Reloading system nginx..."
+                sudo systemctl reload nginx 2>/dev/null || {
+                  echo "   Reload failed, trying restart..."
+                  sudo systemctl restart nginx 2>/dev/null || sudo systemctl start nginx 2>/dev/null || true
+                }
+                sleep 3
+                echo "   System nginx status:"
+                sudo systemctl status nginx --no-pager -l | head -5
               else
-                echo "⚠️ Nginx configuration has errors, but continuing..."
-                echo "   You may need to fix nginx config manually"
+                echo "⚠️ Nginx configuration has errors"
+                echo "   Error output:"
+                sudo nginx -t 2>&1
+                echo "   Continuing anyway..."
               fi
             else
               echo "⚠️ Nginx command not found - skipping nginx setup"
@@ -320,40 +329,157 @@ jobs:
 
             # Health check
             echo "🏥 Health check..."
-            sleep 5
+            sleep 10
 
             # Test Docker nginx directly
+            echo "🔍 Testing Docker nginx on port 8080..."
+            echo "   Testing /health endpoint..."
             if curl -f http://localhost:8080/health > /dev/null 2>&1; then
-              echo "✅ Docker nginx is healthy on port 8080"
+              echo "✅ /health endpoint working"
+              curl -s http://localhost:8080/health
             else
-              echo "⚠️ Docker nginx health check failed"
-              docker-compose logs --tail=50 nginx
+              echo "⚠️ /health endpoint failed"
             fi
 
-            # Test through system nginx (if SSL is configured)
-            if [ -f "/etc/letsencrypt/live/api.inspirtag.com/fullchain.pem" ]; then
-              if curl -f -k https://api.inspirtag.com/health > /dev/null 2>&1; then
-                echo "✅ API is accessible via HTTPS"
+            echo ""
+            echo "   Testing /api/health endpoint..."
+            if curl -f http://localhost:8080/api/health > /dev/null 2>&1; then
+              echo "✅ /api/health endpoint working"
+              curl -s http://localhost:8080/api/health | head -3
+            else
+              echo "⚠️ /api/health endpoint failed"
+              echo "   Checking nginx container..."
+              docker-compose ps nginx
+              echo "   Nginx logs:"
+              docker-compose logs --tail=50 nginx
+              echo "   App logs:"
+              docker-compose logs --tail=30 app
+            fi
+
+            echo ""
+            echo "   Testing /api/categories endpoint..."
+            if curl -f http://localhost:8080/api/categories > /dev/null 2>&1; then
+              echo "✅ API endpoint working"
+            else
+              echo "⚠️ API endpoint test failed"
+            fi
+
+            # Check system nginx status
+            echo ""
+            echo "🔍 Checking system nginx..."
+            if command -v nginx &> /dev/null; then
+              if systemctl is-active --quiet nginx 2>/dev/null; then
+                echo "✅ System nginx is running"
+                sudo nginx -t 2>&1 | head -5
               else
-                echo "⚠️ HTTPS test failed (DNS may not be configured yet)"
+                echo "⚠️ System nginx is not running"
+                sudo systemctl status nginx --no-pager -l | head -10
               fi
             fi
 
+            # Check if nginx config exists
+            echo ""
+            echo "🔍 Checking nginx configuration..."
+            if [ -f "/etc/nginx/conf.d/api.inspirtag.com.conf" ]; then
+              echo "✅ Found: /etc/nginx/conf.d/api.inspirtag.com.conf"
+            elif [ -f "/etc/nginx/sites-available/api.inspirtag.com.conf" ]; then
+              echo "✅ Found: /etc/nginx/sites-available/api.inspirtag.com.conf"
+            else
+              echo "⚠️ Nginx config file not found"
+            fi
+
+            # Test through system nginx (if SSL is configured)
+            echo ""
+            echo "🔍 Testing HTTPS endpoint (api.inspirtag.com)..."
+            if [ -f "/etc/letsencrypt/live/api.inspirtag.com/fullchain.pem" ]; then
+              echo "✅ SSL certificate exists"
+
+              # Test HTTPS health endpoint
+              echo "   Testing https://api.inspirtag.com/health..."
+              if curl -f -k https://api.inspirtag.com/health > /dev/null 2>&1; then
+                echo "✅ HTTPS /health working"
+                curl -s -k https://api.inspirtag.com/health
+              else
+                echo "⚠️ HTTPS /health failed"
+              fi
+
+              echo ""
+              echo "   Testing https://api.inspirtag.com/api/health..."
+              if curl -f -k https://api.inspirtag.com/api/health > /dev/null 2>&1; then
+                echo "✅ HTTPS /api/health working"
+                curl -s -k https://api.inspirtag.com/api/health | head -3
+              else
+                echo "⚠️ HTTPS /api/health failed"
+              fi
+
+              echo ""
+              echo "   Testing https://api.inspirtag.com/api/categories..."
+              if curl -f -k https://api.inspirtag.com/api/categories > /dev/null 2>&1; then
+                echo "✅ HTTPS API endpoint working"
+              else
+                echo "⚠️ HTTPS API endpoint failed"
+              fi
+
+              # If HTTPS fails, do diagnostics
+              if ! curl -f -k https://api.inspirtag.com/health > /dev/null 2>&1; then
+                echo ""
+                echo "   🔍 Diagnosing HTTPS issues..."
+                echo "   Testing DNS resolution..."
+                nslookup api.inspirtag.com 2>&1 | head -5 || dig api.inspirtag.com 2>&1 | head -5 || echo "   DNS check failed"
+                echo "   Testing HTTP (should redirect to HTTPS)..."
+                curl -I http://api.inspirtag.com/health 2>&1 | head -5
+                echo "   Testing localhost through system nginx..."
+                curl -k https://localhost/health 2>&1 | head -5 || echo "   Localhost test failed"
+                echo "   Checking system nginx error log..."
+                sudo tail -10 /var/log/nginx/error.log 2>/dev/null || echo "   Cannot read error log"
+              fi
+            else
+              echo "⚠️ SSL certificate not found"
+              echo "   Run: sudo certbot certonly --standalone -d api.inspirtag.com"
+              echo "   Testing HTTP endpoint (without SSL)..."
+              if curl -f http://api.inspirtag.com/health > /dev/null 2>&1; then
+                echo "✅ HTTP endpoint working (SSL not configured yet)"
+              else
+                echo "⚠️ HTTP endpoint also failed"
+                echo "   Testing DNS..."
+                nslookup api.inspirtag.com 2>&1 | head -5 || dig api.inspirtag.com 2>&1 | head -5
+              fi
+            fi
+
+            # Check port 8080 is accessible
+            echo ""
+            echo "🔍 Checking port 8080..."
+            if netstat -tuln 2>/dev/null | grep -q ":8080 " || ss -tuln 2>/dev/null | grep -q ":8080 "; then
+              echo "✅ Port 8080 is listening"
+            else
+              echo "⚠️ Port 8080 is not listening"
+            fi
+
             # Final container status
+            echo ""
             echo "📊 Final container status:"
             docker-compose ps
 
-            echo "🎉 Deployment completed!"
             echo ""
-            echo "📋 Summary:"
-            echo "   ✅ Docker containers running on port 8080"
-            echo "   ✅ System nginx configured as reverse proxy"
+            echo "📋 Deployment Summary:"
+            echo "   Docker nginx: $(docker-compose ps nginx | grep -q 'Up' && echo '✅ Running' || echo '❌ Not running')"
+            echo "   Docker app: $(docker-compose ps app | grep -q 'Up' && echo '✅ Running' || echo '❌ Not running')"
+            echo "   System nginx: $(systemctl is-active --quiet nginx 2>/dev/null && echo '✅ Running' || echo '⚠️ Not running')"
+            echo "   Port 8080: $(netstat -tuln 2>/dev/null | grep -q ':8080 ' && echo '✅ Listening' || echo '⚠️ Not listening')"
             if [ -f "/etc/letsencrypt/live/api.inspirtag.com/fullchain.pem" ]; then
-              echo "   ✅ SSL certificate configured"
+              echo "   SSL certificate: ✅ Configured"
             else
-              echo "   ⚠️ SSL certificate not yet configured (run certbot manually)"
+              echo "   SSL certificate: ⚠️ Not configured"
             fi
             echo "   📍 API URL: https://api.inspirtag.com"
+
+            echo ""
+            echo "🔧 Troubleshooting commands:"
+            echo "   Check Docker: docker-compose ps && docker-compose logs"
+            echo "   Check system nginx: sudo systemctl status nginx && sudo nginx -t"
+            echo "   Test locally: curl http://localhost:8080/health"
+            echo "   Test DNS: nslookup api.inspirtag.com"
+            echo "   Check nginx config: ls -la /etc/nginx/conf.d/ /etc/nginx/sites-available/ 2>/dev/null"
 
       - name: Notify deployment status
         if: always()
