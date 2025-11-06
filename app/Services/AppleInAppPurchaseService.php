@@ -12,7 +12,7 @@ class AppleInAppPurchaseService
     const APPLE_SANDBOX_URL = 'https://sandbox.itunes.apple.com/verifyReceipt';
     const APPLE_PRODUCTION_URL = 'https://buy.itunes.apple.com/verifyReceipt';
     const SUBSCRIPTION_DURATION_DAYS = 30;
-    const PROFESSIONAL_PRODUCT_ID = 'com.inspirtag.professional_monthly';
+    const PROFESSIONAL_PRODUCT_ID = 'com.inspiritags.com.professional_monthly';
 
     public static function validateReceipt(string $receiptData, bool $isProduction = true): array
     {
