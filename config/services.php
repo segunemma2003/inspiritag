@@ -41,6 +41,7 @@ return [
     'apple' => [
         'shared_secret' => env('APPLE_SHARED_SECRET'),
         'bundle_id' => env('APPLE_BUNDLE_ID'),
+        'professional_product_id' => env('APPLE_PROFESSIONAL_PRODUCT_ID', 'com.inspirtag.professional_monthly'),
     ],
 
 ];

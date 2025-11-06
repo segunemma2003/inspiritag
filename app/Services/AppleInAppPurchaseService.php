@@ -12,6 +12,7 @@ class AppleInAppPurchaseService
     const APPLE_SANDBOX_URL = 'https://sandbox.itunes.apple.com/verifyReceipt';
     const APPLE_PRODUCTION_URL = 'https://buy.itunes.apple.com/verifyReceipt';
     const SUBSCRIPTION_DURATION_DAYS = 30;
+    const PROFESSIONAL_PRODUCT_ID = 'com.inspirtag.professional_monthly';
 
     public static function validateReceipt(string $receiptData, bool $isProduction = true): array
     {
@@ -97,6 +98,20 @@ class AppleInAppPurchaseService
         $transactionId = $latestTransaction['transaction_id'] ?? null;
         $productId = $latestTransaction['product_id'] ?? null;
 
+        // Validate product ID matches expected professional subscription
+        if ($productId !== self::PROFESSIONAL_PRODUCT_ID) {
+            Log::warning('Invalid product ID received', [
+                'expected' => self::PROFESSIONAL_PRODUCT_ID,
+                'received' => $productId,
+                'user_id' => $user->id,
+            ]);
+            return [
+                'success' => false,
+                'message' => 'Invalid subscription product. Expected: ' . self::PROFESSIONAL_PRODUCT_ID,
+                'error' => 'Product ID mismatch',
+            ];
+        }
+
         $isCancelled = collect($pendingRenewalInfo)
             ->where('original_transaction_id', $originalTransactionId)
             ->first()['expiration_intent'] ?? null;
@@ -147,11 +162,25 @@ class AppleInAppPurchaseService
 
             $latestTransaction = collect($latestReceiptInfo)->sortByDesc('purchase_date_ms')->first();
             $originalTransactionId = $latestTransaction['original_transaction_id'] ?? null;
+            $productId = $latestTransaction['product_id'] ?? null;
 
             if (!$originalTransactionId) {
                 return [
                     'success' => false,
                     'message' => 'No original transaction ID found',
+                ];
+            }
+
+            // Validate product ID matches expected professional subscription
+            if ($productId && $productId !== self::PROFESSIONAL_PRODUCT_ID) {
+                Log::warning('Invalid product ID in webhook notification', [
+                    'expected' => self::PROFESSIONAL_PRODUCT_ID,
+                    'received' => $productId,
+                    'transaction_id' => $originalTransactionId,
+                ]);
+                return [
+                    'success' => false,
+                    'message' => 'Invalid subscription product ID',
                 ];
             }
 

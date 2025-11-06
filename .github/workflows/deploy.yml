@@ -71,10 +71,31 @@ jobs:
               NGINX_CONFIG_FILE="/etc/nginx/sites-available/api.inspirtag.com.conf"
               echo "   Created sites-available directory"
 
-              # Add include to main nginx.conf if not present
-              if ! grep -q "sites-enabled" /etc/nginx/nginx.conf 2>/dev/null; then
-                echo "   Adding sites-enabled to main nginx config..."
-                sudo sed -i '/^http {/a\    include /etc/nginx/sites-enabled/*;' /etc/nginx/nginx.conf
+              # Find main nginx config file
+              NGINX_MAIN_CONF=""
+              for conf_file in /etc/nginx/nginx.conf /usr/local/nginx/conf/nginx.conf /opt/nginx/conf/nginx.conf; do
+                if [ -f "$conf_file" ]; then
+                  NGINX_MAIN_CONF="$conf_file"
+                  break
+                fi
+              done
+
+              # If nginx.conf exists, add include for sites-enabled
+              if [ -n "$NGINX_MAIN_CONF" ]; then
+                if ! grep -q "sites-enabled" "$NGINX_MAIN_CONF" 2>/dev/null; then
+                  echo "   Adding sites-enabled to main nginx config: $NGINX_MAIN_CONF"
+                  # Try to add after http { block
+                  sudo sed -i '/^http {/a\    include /etc/nginx/sites-enabled/*;' "$NGINX_MAIN_CONF" 2>/dev/null || {
+                    # If that fails, try adding at end of http block
+                    echo "   Adding include at end of http block..."
+                    sudo sed -i '/^}$/i\    include /etc/nginx/sites-enabled/*;' "$NGINX_MAIN_CONF" 2>/dev/null || true
+                  }
+                fi
+              else
+                echo "   ⚠️ Main nginx.conf not found - using conf.d approach instead"
+                NGINX_CONFIG_DIR="/etc/nginx/conf.d"
+                sudo mkdir -p "$NGINX_CONFIG_DIR"
+                NGINX_CONFIG_FILE="/etc/nginx/conf.d/api.inspirtag.com.conf"
               fi
             fi
 
@@ -91,50 +112,50 @@ jobs:
                 sudo ln -sf "$NGINX_CONFIG_FILE" /etc/nginx/sites-enabled/api.inspirtag.com.conf
               fi
             else
-              # Generate nginx config dynamically
+  # Generate nginx config dynamically
               echo "   Generating nginx configuration..."
-              sudo tee "$NGINX_CONFIG_FILE" > /dev/null <<'EOF'
-            # HTTP - redirect to HTTPS
-            server {
-                listen 80;
-                server_name api.inspirtag.com;
+              sudo tee "$NGINX_CONFIG_FILE" > /dev/null <<'NGINX_EOF'
+# HTTP - redirect to HTTPS
+server {
+    listen 80;
+    server_name api.inspirtag.com;
 
-                location /.well-known/acme-challenge/ {
-                    root /var/www/html;
-                }
+    location /.well-known/acme-challenge/ {
+        root /var/www/html;
+    }
 
-                location / {
-                    return 301 https://$server_name$request_uri;
-                }
-            }
+    location / {
+        return 301 https://$server_name$request_uri;
+    }
+}
 
-            # HTTPS - proxy to Docker nginx
-            server {
-                listen 443 ssl http2;
-                server_name api.inspirtag.com;
+# HTTPS - proxy to Docker nginx
+server {
+    listen 443 ssl http2;
+    server_name api.inspirtag.com;
 
-                ssl_certificate /etc/letsencrypt/live/api.inspirtag.com/fullchain.pem;
-                ssl_certificate_key /etc/letsencrypt/live/api.inspirtag.com/privkey.pem;
+    ssl_certificate /etc/letsencrypt/live/api.inspirtag.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/api.inspirtag.com/privkey.pem;
 
-                ssl_protocols TLSv1.2 TLSv1.3;
-                ssl_ciphers HIGH:!aNULL:!MD5;
-                ssl_prefer_server_ciphers on;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_prefer_server_ciphers on;
 
-                add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
 
-                proxy_set_header Host $host;
-                proxy_set_header X-Real-IP $remote_addr;
-                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-                proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
 
-                client_max_body_size 50M;
+    client_max_body_size 50M;
 
-                location / {
-                    proxy_pass http://127.0.0.1:8080;
-                    proxy_redirect off;
-                }
-            }
-            EOF
+    location / {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_redirect off;
+    }
+}
+NGINX_EOF
 
               if [ "$NGINX_CONFIG_DIR" = "/etc/nginx/sites-available" ]; then
                 sudo ln -sf "$NGINX_CONFIG_FILE" /etc/nginx/sites-enabled/api.inspirtag.com.conf
@@ -178,11 +199,17 @@ jobs:
 
             # Test nginx configuration
             echo "🧪 Testing nginx configuration..."
-            if sudo nginx -t 2>/dev/null; then
-              echo "✅ Nginx configuration is valid"
-              sudo systemctl reload nginx || sudo systemctl start nginx
+            if command -v nginx &> /dev/null; then
+              if sudo nginx -t 2>/dev/null; then
+                echo "✅ Nginx configuration is valid"
+                sudo systemctl reload nginx 2>/dev/null || sudo systemctl start nginx 2>/dev/null || true
+              else
+                echo "⚠️ Nginx configuration has errors, but continuing..."
+                echo "   You may need to fix nginx config manually"
+              fi
             else
-              echo "⚠️ Nginx configuration has errors, but continuing..."
+              echo "⚠️ Nginx command not found - skipping nginx setup"
+              echo "   You may need to install nginx or configure manually"
             fi
 
             # ============================================
