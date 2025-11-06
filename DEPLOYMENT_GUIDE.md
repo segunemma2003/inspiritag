@@ -511,6 +511,157 @@ sudo iptables -A INPUT -p tcp --dport 443 -j ACCEPT
 
 ## Troubleshooting
 
+### Issue 0: Port 80 Already in Use (Deployment Error)
+
+**Error Message**:
+
+```
+Error response from daemon: failed to bind host port for 0.0.0.0:80: address already in use
+```
+
+**Cause**: Another service (nginx, apache, or another Docker container) is using port 80.
+
+**Solution Steps**:
+
+1. **Identify what's using port 80**:
+
+    ```bash
+    # Check what's using port 80
+    sudo lsof -i :80
+    # or
+    sudo netstat -tulpn | grep :80
+    # or
+    sudo ss -tulpn | grep :80
+    ```
+
+2. **If it's a system nginx/apache service** (Most Common):
+
+    **For System Nginx** (Your Case):
+    ```bash
+    # Stop system nginx
+    sudo systemctl stop nginx
+    
+    # Disable it from auto-starting on boot
+    sudo systemctl disable nginx
+    
+    # Verify it's stopped
+    sudo systemctl status nginx
+    
+    # If still running, force kill
+    sudo pkill -9 nginx
+    ```
+    
+    **Quick Fix Script** (Recommended):
+    ```bash
+    # Use the provided script
+    chmod +x fix-nginx-conflict.sh
+    ./fix-nginx-conflict.sh
+    ```
+    
+    **For System Apache**:
+    ```bash
+    # Stop system apache
+    sudo systemctl stop apache2
+    sudo systemctl disable apache2
+    ```
+    
+    **Important**: After stopping system nginx, Docker nginx will handle all web traffic. This is the recommended setup for Docker deployments.
+
+3. **If it's another Docker container**:
+
+    ```bash
+    # List all running containers
+    docker ps
+
+    # Stop the container using port 80
+    docker stop <container-name>
+
+    # Or remove it if not needed
+    docker rm <container-name>
+    ```
+
+4. **If it's a previous inspirtag-nginx container**:
+
+    ```bash
+    # Stop and remove old container
+    docker stop inspirtag-nginx
+    docker rm inspirtag-nginx
+
+    # Or use docker-compose
+    cd /var/www/inspirtag
+    docker-compose down
+    docker-compose up -d
+    ```
+
+5. **Verify port 80 is free**:
+
+    ```bash
+    sudo lsof -i :80
+    # Should return nothing if port is free
+    ```
+
+6. **Retry deployment**:
+    ```bash
+    cd /var/www/inspirtag
+    docker-compose up -d
+    ```
+
+**Quick Fix Script**:
+
+```bash
+#!/bin/bash
+# fix-port-80.sh
+
+echo "🔍 Checking what's using port 80..."
+sudo lsof -i :80
+
+echo ""
+echo "🛑 Stopping conflicting services..."
+
+# Stop system nginx if running
+if systemctl is-active --quiet nginx; then
+    echo "Stopping system nginx..."
+    sudo systemctl stop nginx
+    sudo systemctl disable nginx
+fi
+
+# Stop system apache if running
+if systemctl is-active --quiet apache2; then
+    echo "Stopping system apache..."
+    sudo systemctl stop apache2
+    sudo systemctl disable apache2
+fi
+
+# Stop old Docker containers using port 80
+echo "Stopping old Docker containers..."
+docker ps --filter "publish=80" --format "{{.Names}}" | xargs -r docker stop
+docker ps -a --filter "publish=80" --format "{{.Names}}" | xargs -r docker rm
+
+# Stop inspirtag containers
+cd /var/www/inspirtag 2>/dev/null || cd /path/to/your/project
+docker-compose down 2>/dev/null || true
+
+echo ""
+echo "✅ Port 80 should now be free"
+echo "🔍 Verifying..."
+sudo lsof -i :80 || echo "✅ Port 80 is free!"
+
+echo ""
+echo "🚀 You can now run: docker-compose up -d"
+```
+
+**Prevention**: Always stop existing services before deploying:
+
+```bash
+# Before deployment, always run:
+cd /var/www/inspirtag
+docker-compose down
+sudo systemctl stop nginx apache2 2>/dev/null || true
+docker-compose up -d
+```
+
+---
+
 ### Issue 1: DNS Not Resolving
 
 **Symptoms**: `nslookup api.inspirtag.com` doesn't return the server IP
