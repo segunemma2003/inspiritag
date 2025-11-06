@@ -28,7 +28,13 @@ The Professional Subscription system allows users to upgrade to a premium plan (
 
 ## Setup & Configuration
 
-### Environment Variables Required
+### ✅ YES - You Need to Create Subscription Product in App Store Connect!
+
+You **must** create the subscription product in App Store Connect before users can purchase it.
+
+### Step-by-Step Setup:
+
+#### 1. Environment Variables Required
 
 Add these to your `.env` file:
 
@@ -36,21 +42,63 @@ Add these to your `.env` file:
 # Apple In-App Purchase Configuration
 APPLE_SHARED_SECRET=your_shared_secret_from_app_store_connect
 APPLE_BUNDLE_ID=com.yourcompany.yourapp
-
-# Optional: If you want to support other payment methods
-# (Currently only Apple Pay is implemented)
 ```
 
-### How to Get Apple Shared Secret:
+#### 2. Create Subscription Product in App Store Connect
 
+**See detailed guide**: `APPLE_STORE_CONNECT_SETUP_GUIDE.md`
+
+**Quick Steps**:
 1. Go to [App Store Connect](https://appstoreconnect.apple.com)
-2. Navigate to **My Apps** → Select your app
-3. Go to **App Information**
-4. Scroll to **App Store Connect Shared Secret**
-5. Click **Generate** or copy existing secret
-6. Add to `.env` as `APPLE_SHARED_SECRET`
+2. Select your app → **Subscriptions** (or **In-App Purchases** → **Subscriptions**)
+3. Create new subscription group: "Professional Plan"
+4. Add subscription with:
+   - **Subscription ID**: `com.yourapp.professional_monthly` (must match bundle ID format)
+   - **Display Name**: "Professional Plan"
+   - **Duration**: 1 Month
+   - **Price**: £50.00
+5. Submit for review (1-2 days for approval)
 
-### Database Migration
+#### 3. Configure Server-to-Server Notification URL
+
+**Location**: App Store Connect → Your App → **App Information**
+
+**Steps**:
+1. Scroll to **Server-to-Server Notification URL** section
+2. You'll see two fields:
+   - **Production** 
+   - **Sandbox**
+3. Enter your webhook URL in both:
+   ```
+   https://your-api-domain.com/api/webhooks/apple/subscription
+   ```
+   
+   **Replace with your actual domain:**
+   - If using IP: `https://38.180.244.178/api/webhooks/apple/subscription`
+   - If using domain: `https://api.inspirtag.com/api/webhooks/apple/subscription`
+   
+4. Click **Save**
+
+**Requirements**:
+- ✅ Must be HTTPS (not HTTP)
+- ✅ Must be publicly accessible
+- ✅ Must not require authentication
+- ✅ Must return 200 status code
+
+#### 4. Get Apple Shared Secret
+
+1. In App Store Connect → Your App → **App Information**
+2. Scroll to **App Store Connect Shared Secret**
+3. Click **Generate** (if not exists) or copy existing
+4. Add to `.env` as `APPLE_SHARED_SECRET`
+
+#### 5. Get Bundle ID
+
+1. In App Store Connect → Your App → **App Information**
+2. Find **Bundle ID** (e.g., `com.inspirtag.app`)
+3. Add to `.env` as `APPLE_BUNDLE_ID`
+
+#### 6. Database Migration
 
 Run migrations to add subscription and Apple fields:
 
@@ -65,18 +113,15 @@ This will create:
 - Ads and analytics fields in `posts` table
 - Apple transaction fields in `users` table
 
-### App Store Connect Configuration
+### Complete Setup Checklist
 
-1. **Server-to-Server Notification URL**:
-   - Go to App Store Connect → Your App → App Information
-   - Set **Server-to-Server Notification URL**: `https://your-api-domain.com/api/webhooks/apple/subscription`
-   - Enable for both **Production** and **Sandbox**
-
-2. **Product ID**:
-   - Create a subscription product in App Store Connect
-   - Product ID format: `com.yourapp.professional_monthly`
-   - Price: £50.00 per month
-   - Duration: 1 month
+- [ ] Subscription product created in App Store Connect
+- [ ] Subscription product approved (for production)
+- [ ] Server-to-Server Notification URL configured (Production & Sandbox)
+- [ ] Shared Secret generated and added to `.env`
+- [ ] Bundle ID copied and added to `.env`
+- [ ] Database migrations run
+- [ ] Webhook endpoint is publicly accessible via HTTPS
 
 ---
 
