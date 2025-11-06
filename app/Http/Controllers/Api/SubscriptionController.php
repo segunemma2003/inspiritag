@@ -137,10 +137,10 @@ class SubscriptionController extends Controller
                 'duration' => SubscriptionService::SUBSCRIPTION_DURATION_DAYS,
                 'duration_unit' => 'days',
                 'features' => [
-                    'Tag other professionals',
-                    'Update social links (website, booking, whatsapp, linkedin, instagram, tiktok, snapchat, facebook, twitter)',
-                    'Access to analytics (impressions, reach, views, followers, posts, tags)',
-                    'Tag posts as ads (visible to everyone)',
+                    'Unlimited profile links (website, booking link, whatsapp, tiktok, instagram, snapchat)',
+                    'Tag other professionals and services',
+                    'Access to basic analytics for each post (reach, views, profile visits, tags, and all analytics information)',
+                    'Promote posts (Instagram-style ad generation feature)',
                 ]
             ]
         ]);
