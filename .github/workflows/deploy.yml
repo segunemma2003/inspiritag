@@ -174,25 +174,56 @@ jobs:
                 sudo apt install -y certbot
               fi
 
-              # Stop nginx for certificate generation
+              # Stop services using port 80 for certificate generation
+              echo "   Stopping services on port 80..."
+
+              # Stop Docker nginx (using port 80)
+              docker-compose stop nginx 2>/dev/null || true
+
+              # Stop system nginx if it exists and is running
               if systemctl is-active --quiet nginx 2>/dev/null; then
                 sudo systemctl stop nginx
                 NGINX_STOPPED=true
               fi
 
+              # Check if anything else is using port 80
+              PORT_80_PID=$(sudo lsof -ti:80 2>/dev/null || sudo fuser 80/tcp 2>/dev/null | awk '{print $2}' || echo "")
+              if [ -n "$PORT_80_PID" ]; then
+                echo "   Found process using port 80: $PORT_80_PID"
+                echo "   Stopping process..."
+                sudo kill -9 $PORT_80_PID 2>/dev/null || true
+                sleep 2
+              fi
+
+              # Verify port 80 is free
+              if sudo lsof -ti:80 > /dev/null 2>&1; then
+                echo "   ⚠️ Port 80 is still in use, listing processes:"
+                sudo lsof -i:80 || sudo netstat -tulpn | grep :80
+                echo "   Continuing anyway..."
+              fi
+
               # Generate certificate
+              echo "   Generating certificate..."
               sudo certbot certonly --standalone \
                 -d api.inspirtag.com \
                 --email admin@inspirtag.com \
                 --agree-tos \
                 --non-interactive || {
-                echo "⚠️ SSL certificate generation failed (DNS may not be configured yet)"
+                echo "⚠️ SSL certificate generation failed"
+                echo "   This might be because:"
+                echo "   - Port 80 is still in use"
+                echo "   - DNS is not fully propagated"
+                echo "   - Rate limit reached"
                 echo "   Continuing without SSL - you can generate it manually later"
               }
 
-              # Start nginx if we stopped it
+              # Restart Docker nginx
+              echo "   Restarting Docker nginx..."
+              docker-compose start nginx 2>/dev/null || docker-compose up -d nginx 2>/dev/null || true
+
+              # Start system nginx if we stopped it
               if [ "$NGINX_STOPPED" = true ]; then
-                sudo systemctl start nginx
+                sudo systemctl start nginx 2>/dev/null || true
               fi
             else
               echo "✅ SSL certificate already exists"
