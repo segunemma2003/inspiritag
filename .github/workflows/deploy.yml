@@ -184,7 +184,7 @@ jobs:
 
               # Stop Docker nginx (using port 80)
               echo "   Stopping Docker nginx..."
-              docker-compose stop nginx 2>/dev/null || true
+              docker-compose -p inspirtag stop nginx 2>/dev/null || true
 
               # Stop system nginx if it exists and is running
               if systemctl is-active --quiet nginx 2>/dev/null; then
@@ -230,7 +230,7 @@ jobs:
 
               # Restart Docker nginx
               echo "   Restarting Docker nginx..."
-              docker-compose start nginx 2>/dev/null || docker-compose up -d nginx 2>/dev/null || true
+              docker-compose -p inspirtag start nginx 2>/dev/null || docker-compose -p inspirtag up -d nginx 2>/dev/null || true
 
               # Start system nginx if we stopped it
               if [ "$NGINX_STOPPED" = true ]; then
@@ -329,7 +329,7 @@ jobs:
 
             # Complete shutdown - remove everything
             echo "🛑 Stopping all containers..."
-            docker-compose down --remove-orphans --timeout 10 || true
+            docker-compose -p inspirtag down --remove-orphans --timeout 10 || true
 
             # Force remove any stuck containers
             echo "🧹 Cleaning up stuck containers..."
@@ -341,14 +341,16 @@ jobs:
 
             # Remove existing network if it has wrong labels
             echo "🔧 Cleaning up Docker networks..."
-            if docker network ls | grep -q "inspirtag_inspirtag-network"; then
-              echo "   Removing existing network with incorrect labels..."
-              docker network rm inspirtag_inspirtag-network 2>/dev/null || true
-              sleep 2
-            fi
+            # Docker Compose creates networks with project name prefix
+            # Check for any network matching the pattern
+            for network in $(docker network ls --format "{{.Name}}" | grep -E "inspirtag.*network|inspirtag-network"); do
+              echo "   Removing network: $network"
+              docker network rm "$network" 2>/dev/null || true
+            done
+            sleep 2
 
             # Network will be created automatically by docker-compose
-            echo "   Network will be created by docker-compose"
+            echo "   Network will be created by docker-compose with correct labels"
 
             # Restore .env file
             echo "📋 Restoring .env file..."
@@ -356,11 +358,12 @@ jobs:
 
             # Always rebuild to ensure latest code
             echo "🔨 Building containers..."
-            docker-compose build --no-cache
+            docker-compose -p inspirtag build --no-cache
 
             # Start all containers fresh
+            # Use explicit project name to ensure consistent network naming
             echo "🚀 Starting containers..."
-            docker-compose up -d --force-recreate --remove-orphans
+            docker-compose -p inspirtag up -d --force-recreate --remove-orphans
 
             # Wait for services to be ready
             echo "⏳ Waiting for services to start..."
@@ -368,14 +371,14 @@ jobs:
 
             # Check container status
             echo "🔍 Container status:"
-            docker-compose ps
+            docker-compose -p inspirtag ps
 
             # Wait for containers to be healthy
             echo "⏳ Waiting for containers to be healthy..."
             MAX_RETRIES=30
             RETRY_COUNT=0
             while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-              if docker-compose ps | grep -q "Up"; then
+              if docker-compose -p inspirtag ps | grep -q "Up"; then
                 echo "   ✅ Containers are up"
                 break
               fi
@@ -386,27 +389,27 @@ jobs:
 
             # Check if app container is running
             echo "🔍 Checking app container..."
-            if ! docker-compose ps app | grep -q "Up"; then
+            if ! docker-compose -p inspirtag ps app | grep -q "Up"; then
               echo "❌ App container is not running"
               echo "   Attempting to start..."
-              docker-compose up -d app
+              docker-compose -p inspirtag up -d app
               sleep 10
-              docker-compose logs --tail=50 app
-              if ! docker-compose ps app | grep -q "Up"; then
+              docker-compose -p inspirtag logs --tail=50 app
+              if ! docker-compose -p inspirtag ps app | grep -q "Up"; then
                 echo "❌ App container failed to start"
-                exit 1
+              exit 1
               fi
             fi
 
             # Check if nginx container is running
             echo "🔍 Checking nginx container..."
-            if ! docker-compose ps nginx | grep -q "Up"; then
+            if ! docker-compose -p inspirtag ps nginx | grep -q "Up"; then
               echo "❌ Nginx container is not running"
               echo "   Attempting to start..."
-              docker-compose up -d nginx
+              docker-compose -p inspirtag up -d nginx
               sleep 10
-              docker-compose logs --tail=50 nginx
-              if ! docker-compose ps nginx | grep -q "Up"; then
+              docker-compose -p inspirtag logs --tail=50 nginx
+              if ! docker-compose -p inspirtag ps nginx | grep -q "Up"; then
                 echo "❌ Nginx container failed to start"
                 echo "   This is critical - API will not be accessible"
               fi
@@ -422,7 +425,7 @@ jobs:
               else
                 echo "   ❌ Port 8080 is NOT listening"
                 echo "   Restarting nginx container..."
-                docker-compose restart nginx
+                docker-compose -p inspirtag restart nginx
                 sleep 10
               fi
             else
@@ -432,34 +435,34 @@ jobs:
               else
                 echo "   ❌ Port 80 is NOT listening"
                 echo "   Restarting nginx container..."
-                docker-compose restart nginx
+                docker-compose -p inspirtag restart nginx
                 sleep 10
               fi
             fi
 
             # Clear all Laravel caches
             echo "🧹 Clearing Laravel caches..."
-            docker-compose exec -T app php artisan config:clear || true
-            docker-compose exec -T app php artisan route:clear || true
-            docker-compose exec -T app php artisan cache:clear || true
-            docker-compose exec -T app php artisan view:clear || true
-            docker-compose exec -T app rm -rf bootstrap/cache/*.php || true
+            docker-compose -p inspirtag exec -T app php artisan config:clear || true
+            docker-compose -p inspirtag exec -T app php artisan route:clear || true
+            docker-compose -p inspirtag exec -T app php artisan cache:clear || true
+            docker-compose -p inspirtag exec -T app php artisan view:clear || true
+            docker-compose -p inspirtag exec -T app rm -rf bootstrap/cache/*.php || true
 
             # Run migrations
             echo "🗄️ Running migrations..."
-            docker-compose exec -T app php artisan migrate --force || {
+            docker-compose -p inspirtag exec -T app php artisan migrate --force || {
               echo "⚠️ Migrations failed, continuing..."
             }
 
             # Cache configuration
             echo "📦 Caching configuration..."
-            docker-compose exec -T app php artisan config:cache
-            docker-compose exec -T app php artisan route:cache
-            docker-compose exec -T app php artisan view:cache
+            docker-compose -p inspirtag exec -T app php artisan config:cache
+            docker-compose -p inspirtag exec -T app php artisan route:cache
+            docker-compose -p inspirtag exec -T app php artisan view:cache
 
             # Restart queue workers
             echo "🔄 Restarting queue workers..."
-            docker-compose exec -T app php artisan queue:restart || true
+            docker-compose -p inspirtag exec -T app php artisan queue:restart || true
 
             # Health check
             echo "🏥 Health check..."
@@ -479,10 +482,10 @@ jobs:
             else
               echo "⚠️ /health endpoint failed"
               echo "   Checking if nginx container is running..."
-              docker-compose ps nginx
-              if ! docker-compose ps nginx | grep -q "Up"; then
+              docker-compose -p inspirtag ps nginx
+              if ! docker-compose -p inspirtag ps nginx | grep -q "Up"; then
                 echo "   ❌ Nginx container is down - restarting..."
-                docker-compose up -d nginx
+                docker-compose -p inspirtag up -d nginx
                 sleep 10
               fi
             fi
@@ -495,13 +498,13 @@ jobs:
             else
               echo "❌ /api/health endpoint failed"
               echo "   Checking nginx container..."
-              docker-compose ps nginx
+              docker-compose -p inspirtag ps nginx
               echo "   Nginx logs:"
-              docker-compose logs --tail=50 nginx
+              docker-compose -p inspirtag logs --tail=50 nginx
               echo "   App logs:"
-              docker-compose logs --tail=30 app
+              docker-compose -p inspirtag logs --tail=30 app
               echo "   Testing app container directly..."
-              docker-compose exec -T app php artisan route:list | grep health || echo "   Cannot access app container"
+              docker-compose -p inspirtag exec -T app php artisan route:list | grep health || echo "   Cannot access app container"
             fi
 
             echo ""
@@ -523,7 +526,7 @@ jobs:
               echo "   Checking firewall..."
               sudo ufw status 2>/dev/null || sudo iptables -L -n | grep $DOCKER_PORT || echo "   Firewall check failed"
               echo "   Attempting emergency restart..."
-              docker-compose restart nginx
+              docker-compose -p inspirtag restart nginx
               sleep 15
               echo "   Testing again..."
               if curl -f http://127.0.0.1:$DOCKER_PORT/api/health > /dev/null 2>&1; then
@@ -531,7 +534,7 @@ jobs:
               else
                 echo "   ❌ Port $DOCKER_PORT is still not accessible"
                 echo "   Checking container logs..."
-                docker-compose logs --tail=30 nginx
+                docker-compose -p inspirtag logs --tail=30 nginx
               fi
             fi
 
@@ -642,12 +645,12 @@ jobs:
             # Final container status
             echo ""
             echo "📊 Final container status:"
-            docker-compose ps
+            docker-compose -p inspirtag ps
 
             echo ""
             echo "📋 Deployment Summary:"
-            echo "   Docker nginx: $(docker-compose ps nginx | grep -q 'Up' && echo '✅ Running' || echo '❌ Not running')"
-            echo "   Docker app: $(docker-compose ps app | grep -q 'Up' && echo '✅ Running' || echo '❌ Not running')"
+            echo "   Docker nginx: $(docker-compose -p inspirtag ps nginx | grep -q 'Up' && echo '✅ Running' || echo '❌ Not running')"
+            echo "   Docker app: $(docker-compose -p inspirtag ps app | grep -q 'Up' && echo '✅ Running' || echo '❌ Not running')"
             echo "   System nginx: $(systemctl is-active --quiet nginx 2>/dev/null && echo '✅ Running' || echo '⚠️ Not running')"
             echo "   Port 8080: $(netstat -tuln 2>/dev/null | grep -q ':8080 ' && echo '✅ Listening' || echo '⚠️ Not listening')"
             if [ -f "/etc/letsencrypt/live/api.inspirtag.com/fullchain.pem" ]; then
@@ -659,7 +662,7 @@ jobs:
 
             echo ""
             echo "🔧 Troubleshooting commands:"
-            echo "   Check Docker: docker-compose ps && docker-compose logs"
+            echo "   Check Docker: docker-compose -p inspirtag ps && docker-compose -p inspirtag logs"
             echo "   Check system nginx: sudo systemctl status nginx && sudo nginx -t"
             echo "   Test locally: curl http://localhost:8080/health"
             echo "   Test DNS: nslookup api.inspirtag.com"
