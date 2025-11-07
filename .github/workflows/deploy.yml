@@ -240,6 +240,17 @@ jobs:
               echo "✅ SSL certificate already exists"
             fi
 
+            # Ensure system nginx is running
+            echo "🚀 Ensuring system nginx is running..."
+            if ! systemctl is-active --quiet nginx 2>/dev/null; then
+              echo "   Starting system nginx..."
+              sudo systemctl start nginx 2>/dev/null || true
+              sleep 3
+            fi
+
+            # Enable nginx to start on boot
+            sudo systemctl enable nginx 2>/dev/null || true
+
             # Test nginx configuration
             echo "🧪 Testing nginx configuration..."
             if command -v nginx &> /dev/null; then
@@ -251,6 +262,19 @@ jobs:
                   sudo systemctl restart nginx 2>/dev/null || sudo systemctl start nginx 2>/dev/null || true
                 }
                 sleep 3
+
+                # Verify nginx is running
+                if systemctl is-active --quiet nginx 2>/dev/null; then
+                  echo "✅ System nginx is running"
+                else
+                  echo "⚠️ System nginx failed to start"
+                  echo "   Checking status..."
+                  sudo systemctl status nginx --no-pager -l | head -10
+                  echo "   Attempting to start again..."
+                  sudo systemctl start nginx
+                  sleep 3
+                fi
+
                 echo "   System nginx status:"
                 sudo systemctl status nginx --no-pager -l | head -5
               else
@@ -268,17 +292,24 @@ jobs:
             # DOCKER SETUP
             # ============================================
 
-            # Check if system nginx exists and is configured
+            # Check if system nginx exists and install if needed
             SYSTEM_NGINX_EXISTS=false
             if command -v nginx &> /dev/null; then
               SYSTEM_NGINX_EXISTS=true
               echo "✅ System nginx is installed"
+            else
+              echo "⚠️ System nginx is not installed"
+              echo "   Installing system nginx for HTTPS support..."
+              sudo apt update -qq
+              sudo apt install -y nginx
+              SYSTEM_NGINX_EXISTS=true
+              echo "✅ System nginx installed"
             fi
 
-            # Configure Docker ports based on system nginx availability
+            # Configure Docker ports - always use 8080 when system nginx exists
             echo "🔧 Configuring Docker ports..."
             if [ "$SYSTEM_NGINX_EXISTS" = true ]; then
-              # Use port 8080 if system nginx exists
+              # Use port 8080 - system nginx will handle 80/443
               echo "   System nginx detected - using port 8080 for Docker"
               if grep -q '"80:80"' docker-compose.yml; then
                 echo "   Updating docker-compose.yml to use port 8080..."
@@ -292,8 +323,9 @@ jobs:
                 sed -i 's|nginx-ssl.conf|nginx.conf|' docker-compose.yml
               fi
             else
-              # No system nginx - use port 80 directly
-              echo "   No system nginx - using port 80 directly for Docker"
+              # Fallback: No system nginx - use port 80 directly (HTTP only)
+              echo "   ⚠️ No system nginx - using port 80 directly for Docker (HTTP only)"
+              echo "   ⚠️ HTTPS will not work without system nginx"
               if grep -q '"8080:80"' docker-compose.yml; then
                 echo "   Updating docker-compose.yml to use port 80..."
                 sed -i 's/"8080:80"/"80:80"/' docker-compose.yml
