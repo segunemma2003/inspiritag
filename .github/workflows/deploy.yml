@@ -339,9 +339,16 @@ jobs:
             docker container prune -f
             docker network prune -f
 
-            # Ensure Docker network exists
-            echo "🔧 Ensuring Docker network exists..."
-            docker network create inspirtag_inspirtag-network 2>/dev/null || true
+            # Remove existing network if it has wrong labels
+            echo "🔧 Cleaning up Docker networks..."
+            if docker network ls | grep -q "inspirtag_inspirtag-network"; then
+              echo "   Removing existing network with incorrect labels..."
+              docker network rm inspirtag_inspirtag-network 2>/dev/null || true
+              sleep 2
+            fi
+
+            # Network will be created automatically by docker-compose
+            echo "   Network will be created by docker-compose"
 
             # Restore .env file
             echo "📋 Restoring .env file..."
