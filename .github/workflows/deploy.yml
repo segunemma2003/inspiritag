@@ -177,19 +177,27 @@ jobs:
               # Stop services using port 80 for certificate generation
               echo "   Stopping services on port 80..."
 
+              # Kill any existing certbot processes
+              echo "   Checking for existing certbot processes..."
+              sudo pkill -f certbot 2>/dev/null || true
+              sleep 2
+
               # Stop Docker nginx (using port 80)
+              echo "   Stopping Docker nginx..."
               docker-compose stop nginx 2>/dev/null || true
 
               # Stop system nginx if it exists and is running
               if systemctl is-active --quiet nginx 2>/dev/null; then
+                echo "   Stopping system nginx..."
                 sudo systemctl stop nginx
                 NGINX_STOPPED=true
               fi
 
-              # Check if anything else is using port 80
-              PORT_80_PID=$(sudo lsof -ti:80 2>/dev/null || sudo fuser 80/tcp 2>/dev/null | awk '{print $2}' || echo "")
+              # Find and stop any process using port 80
+              echo "   Checking for processes on port 80..."
+              PORT_80_PID=$(sudo lsof -ti:80 2>/dev/null || echo "")
               if [ -n "$PORT_80_PID" ]; then
-                echo "   Found process using port 80: $PORT_80_PID"
+                echo "   Found process $PORT_80_PID using port 80"
                 echo "   Stopping process..."
                 sudo kill -9 $PORT_80_PID 2>/dev/null || true
                 sleep 2
@@ -199,7 +207,9 @@ jobs:
               if sudo lsof -ti:80 > /dev/null 2>&1; then
                 echo "   ⚠️ Port 80 is still in use, listing processes:"
                 sudo lsof -i:80 || sudo netstat -tulpn | grep :80
-                echo "   Continuing anyway..."
+                echo "   Attempting to free port 80..."
+                sudo fuser -k 80/tcp 2>/dev/null || true
+                sleep 2
               fi
 
               # Generate certificate
@@ -214,6 +224,7 @@ jobs:
                 echo "   - Port 80 is still in use"
                 echo "   - DNS is not fully propagated"
                 echo "   - Rate limit reached"
+                echo "   - Another certbot instance is running"
                 echo "   Continuing without SSL - you can generate it manually later"
               }
 
@@ -257,18 +268,36 @@ jobs:
             # DOCKER SETUP
             # ============================================
 
-            # Ensure docker-compose.yml uses port 8080 (not 80)
-            echo "🔧 Ensuring Docker uses port 8080..."
-            if grep -q '"80:80"' docker-compose.yml; then
-              echo "   Updating docker-compose.yml to use port 8080..."
-              sed -i 's/"80:80"/"8080:80"/' docker-compose.yml
-              sed -i 's/"443:443"/# "443:443"  # Removed - system nginx handles SSL/' docker-compose.yml
+            # Check if system nginx exists and is configured
+            SYSTEM_NGINX_EXISTS=false
+            if command -v nginx &> /dev/null; then
+              SYSTEM_NGINX_EXISTS=true
+              echo "✅ System nginx is installed"
             fi
 
-            # Update nginx config to use HTTP-only
-            if grep -q "nginx-ssl.conf" docker-compose.yml; then
-              echo "   Updating to use HTTP-only nginx config..."
-              sed -i 's|nginx-ssl.conf|nginx.conf|' docker-compose.yml
+            # Configure Docker ports based on system nginx availability
+            echo "🔧 Configuring Docker ports..."
+            if [ "$SYSTEM_NGINX_EXISTS" = true ]; then
+              # Use port 8080 if system nginx exists
+              echo "   System nginx detected - using port 8080 for Docker"
+              if grep -q '"80:80"' docker-compose.yml; then
+                echo "   Updating docker-compose.yml to use port 8080..."
+                sed -i 's/"80:80"/"8080:80"/' docker-compose.yml
+                sed -i 's/"443:443"/# "443:443"  # Removed - system nginx handles SSL/' docker-compose.yml
+              fi
+
+              # Update nginx config to use HTTP-only
+              if grep -q "nginx-ssl.conf" docker-compose.yml; then
+                echo "   Updating to use HTTP-only nginx config..."
+                sed -i 's|nginx-ssl.conf|nginx.conf|' docker-compose.yml
+              fi
+            else
+              # No system nginx - use port 80 directly
+              echo "   No system nginx - using port 80 directly for Docker"
+              if grep -q '"8080:80"' docker-compose.yml; then
+                echo "   Updating docker-compose.yml to use port 80..."
+                sed -i 's/"8080:80"/"80:80"/' docker-compose.yml
+              fi
             fi
 
             # Add missing .env variables if not present
@@ -310,6 +339,10 @@ jobs:
             docker container prune -f
             docker network prune -f
 
+            # Ensure Docker network exists
+            echo "🔧 Ensuring Docker network exists..."
+            docker network create inspirtag_inspirtag-network 2>/dev/null || true
+
             # Restore .env file
             echo "📋 Restoring .env file..."
             cp .env.backup .env
@@ -320,18 +353,81 @@ jobs:
 
             # Start all containers fresh
             echo "🚀 Starting containers..."
-            docker-compose up -d --force-recreate
+            docker-compose up -d --force-recreate --remove-orphans
 
             # Wait for services to be ready
             echo "⏳ Waiting for services to start..."
-            sleep 15
+            sleep 20
+
+            # Check container status
+            echo "🔍 Container status:"
+            docker-compose ps
+
+            # Wait for containers to be healthy
+            echo "⏳ Waiting for containers to be healthy..."
+            MAX_RETRIES=30
+            RETRY_COUNT=0
+            while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+              if docker-compose ps | grep -q "Up"; then
+                echo "   ✅ Containers are up"
+                break
+              fi
+              RETRY_COUNT=$((RETRY_COUNT + 1))
+              echo "   Waiting... ($RETRY_COUNT/$MAX_RETRIES)"
+              sleep 2
+            done
 
             # Check if app container is running
             echo "🔍 Checking app container..."
             if ! docker-compose ps app | grep -q "Up"; then
               echo "❌ App container is not running"
-              docker-compose logs app
-              exit 1
+              echo "   Attempting to start..."
+              docker-compose up -d app
+              sleep 10
+              docker-compose logs --tail=50 app
+              if ! docker-compose ps app | grep -q "Up"; then
+                echo "❌ App container failed to start"
+                exit 1
+              fi
+            fi
+
+            # Check if nginx container is running
+            echo "🔍 Checking nginx container..."
+            if ! docker-compose ps nginx | grep -q "Up"; then
+              echo "❌ Nginx container is not running"
+              echo "   Attempting to start..."
+              docker-compose up -d nginx
+              sleep 10
+              docker-compose logs --tail=50 nginx
+              if ! docker-compose ps nginx | grep -q "Up"; then
+                echo "❌ Nginx container failed to start"
+                echo "   This is critical - API will not be accessible"
+              fi
+            fi
+
+            # Verify Docker nginx port is listening
+            echo "🔍 Verifying Docker nginx port..."
+            sleep 5
+            if [ "$SYSTEM_NGINX_EXISTS" = true ]; then
+              # Check port 8080
+              if netstat -tuln 2>/dev/null | grep -q ":8080 " || ss -tuln 2>/dev/null | grep -q ":8080 "; then
+                echo "   ✅ Port 8080 is listening"
+              else
+                echo "   ❌ Port 8080 is NOT listening"
+                echo "   Restarting nginx container..."
+                docker-compose restart nginx
+                sleep 10
+              fi
+            else
+              # Check port 80
+              if netstat -tuln 2>/dev/null | grep -q ":80 " || ss -tuln 2>/dev/null | grep -q ":80 "; then
+                echo "   ✅ Port 80 is listening"
+              else
+                echo "   ❌ Port 80 is NOT listening"
+                echo "   Restarting nginx container..."
+                docker-compose restart nginx
+                sleep 10
+              fi
             fi
 
             # Clear all Laravel caches
@@ -363,36 +459,73 @@ jobs:
             sleep 10
 
             # Test Docker nginx directly
-            echo "🔍 Testing Docker nginx on port 8080..."
+            DOCKER_PORT="8080"
+            if [ "$SYSTEM_NGINX_EXISTS" != true ]; then
+              DOCKER_PORT="80"
+            fi
+
+            echo "🔍 Testing Docker nginx on port $DOCKER_PORT..."
             echo "   Testing /health endpoint..."
-            if curl -f http://localhost:8080/health > /dev/null 2>&1; then
+            if curl -f http://localhost:$DOCKER_PORT/health > /dev/null 2>&1; then
               echo "✅ /health endpoint working"
-              curl -s http://localhost:8080/health
+              curl -s http://localhost:$DOCKER_PORT/health
             else
               echo "⚠️ /health endpoint failed"
+              echo "   Checking if nginx container is running..."
+              docker-compose ps nginx
+              if ! docker-compose ps nginx | grep -q "Up"; then
+                echo "   ❌ Nginx container is down - restarting..."
+                docker-compose up -d nginx
+                sleep 10
+              fi
             fi
 
             echo ""
             echo "   Testing /api/health endpoint..."
-            if curl -f http://localhost:8080/api/health > /dev/null 2>&1; then
+            if curl -f http://localhost:$DOCKER_PORT/api/health > /dev/null 2>&1; then
               echo "✅ /api/health endpoint working"
-              curl -s http://localhost:8080/api/health | head -3
+              curl -s http://localhost:$DOCKER_PORT/api/health | head -3
             else
-              echo "⚠️ /api/health endpoint failed"
+              echo "❌ /api/health endpoint failed"
               echo "   Checking nginx container..."
               docker-compose ps nginx
               echo "   Nginx logs:"
               docker-compose logs --tail=50 nginx
               echo "   App logs:"
               docker-compose logs --tail=30 app
+              echo "   Testing app container directly..."
+              docker-compose exec -T app php artisan route:list | grep health || echo "   Cannot access app container"
             fi
 
             echo ""
             echo "   Testing /api/categories endpoint..."
-            if curl -f http://localhost:8080/api/categories > /dev/null 2>&1; then
+            if curl -f http://localhost:$DOCKER_PORT/api/categories > /dev/null 2>&1; then
               echo "✅ API endpoint working"
             else
               echo "⚠️ API endpoint test failed"
+            fi
+
+            # Critical check - if Docker port is not accessible, API won't work
+            echo ""
+            echo "🔍 Critical check - Port $DOCKER_PORT accessibility..."
+            if curl -f http://127.0.0.1:$DOCKER_PORT/api/health > /dev/null 2>&1; then
+              echo "✅ Port $DOCKER_PORT is accessible from localhost"
+            else
+              echo "❌ CRITICAL: Port $DOCKER_PORT is NOT accessible"
+              echo "   This means the API will not work!"
+              echo "   Checking firewall..."
+              sudo ufw status 2>/dev/null || sudo iptables -L -n | grep $DOCKER_PORT || echo "   Firewall check failed"
+              echo "   Attempting emergency restart..."
+              docker-compose restart nginx
+              sleep 15
+              echo "   Testing again..."
+              if curl -f http://127.0.0.1:$DOCKER_PORT/api/health > /dev/null 2>&1; then
+                echo "   ✅ Port $DOCKER_PORT is now accessible"
+              else
+                echo "   ❌ Port $DOCKER_PORT is still not accessible"
+                echo "   Checking container logs..."
+                docker-compose logs --tail=30 nginx
+              fi
             fi
 
             # Check system nginx status
@@ -404,8 +537,21 @@ jobs:
                 sudo nginx -t 2>&1 | head -5
               else
                 echo "⚠️ System nginx is not running"
-                sudo systemctl status nginx --no-pager -l | head -10
+                if systemctl list-units --type=service 2>/dev/null | grep -q nginx.service; then
+                  echo "   Attempting to start system nginx..."
+                  sudo systemctl start nginx 2>/dev/null || echo "   Failed to start"
+                else
+                  echo "   System nginx service not found"
+                  echo "   ⚠️ System nginx may not be installed as a service"
+                  echo "   API will only work via Docker nginx on port 8080"
+                  echo "   To enable HTTPS, install and configure system nginx"
+                fi
               fi
+            else
+              echo "⚠️ Nginx command not found"
+              echo "   System nginx is not installed"
+              echo "   API will work via Docker nginx on port 8080"
+              echo "   For HTTPS, you need to install system nginx"
             fi
 
             # Check if nginx config exists
