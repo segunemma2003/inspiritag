@@ -2,20 +2,23 @@
 
 namespace App\Services;
 
+use App\Models\SubscriptionPlan;
 use App\Models\User;
 use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 
 class SubscriptionService
 {
-    const PROFESSIONAL_PLAN_PRICE = 50.00;
-    const SUBSCRIPTION_DURATION_DAYS = 30;
+    const DEFAULT_PRICE = 50.00;
+    const DEFAULT_DURATION_DAYS = 30;
 
     public static function upgradeToProfessional(User $user, $paymentId = null): array
     {
         try {
+            [$price, $duration] = self::resolvePlanAttributes();
+
             $now = Carbon::now();
-            $expiresAt = $now->copy()->addDays(self::SUBSCRIPTION_DURATION_DAYS);
+            $expiresAt = $now->copy()->addDays($duration);
 
             $user->update([
                 'is_professional' => true,
@@ -32,6 +35,7 @@ class SubscriptionService
                     'is_professional' => true,
                     'subscription_expires_at' => $expiresAt->toDateTimeString(),
                     'days_remaining' => $now->diffInDays($expiresAt, false),
+                    'plan_price' => $price,
                 ]
             ];
         } catch (\Exception $e) {
@@ -68,13 +72,15 @@ class SubscriptionService
     public static function renewSubscription(User $user, $paymentId = null): array
     {
         try {
+            [$price, $duration] = self::resolvePlanAttributes();
+
             $now = Carbon::now();
             $currentExpiry = $user->subscription_expires_at ? Carbon::parse($user->subscription_expires_at) : $now;
-            
+
             if ($currentExpiry->isFuture()) {
-                $expiresAt = $currentExpiry->copy()->addDays(self::SUBSCRIPTION_DURATION_DAYS);
+                $expiresAt = $currentExpiry->copy()->addDays($duration);
             } else {
-                $expiresAt = $now->copy()->addDays(self::SUBSCRIPTION_DURATION_DAYS);
+                $expiresAt = $now->copy()->addDays($duration);
             }
 
             $user->update([
@@ -91,6 +97,7 @@ class SubscriptionService
                 'data' => [
                     'subscription_expires_at' => $expiresAt->toDateTimeString(),
                     'days_remaining' => $now->diffInDays($expiresAt, false),
+                    'plan_price' => $price,
                 ]
             ];
         } catch (\Exception $e) {
@@ -152,7 +159,7 @@ class SubscriptionService
     public static function getSubscriptionInfo(User $user): array
     {
         $isActive = self::isProfessional($user);
-        
+
         $info = [
             'is_professional' => $isActive,
             'subscription_status' => $user->subscription_status,
@@ -167,6 +174,21 @@ class SubscriptionService
         }
 
         return $info;
+    }
+
+    protected static function resolvePlanAttributes(): array
+    {
+        $plan = SubscriptionPlan::where('is_default', true)->first();
+
+        if (!$plan) {
+            $plan = SubscriptionPlan::active()->first();
+        }
+
+        if (!$plan) {
+            return [self::DEFAULT_PRICE, self::DEFAULT_DURATION_DAYS];
+        }
+
+        return [$plan->price ?? self::DEFAULT_PRICE, $plan->duration_days ?? self::DEFAULT_DURATION_DAYS];
     }
 }
 

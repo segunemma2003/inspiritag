@@ -498,6 +498,12 @@ jobs:
               echo "⚠️ Migrations failed, continuing..."
             }
 
+            # Seed admin user
+            echo "👤 Ensuring default admin user exists..."
+            docker-compose -p inspirtag exec -T app php artisan db:seed --class=AdminUserSeeder --force || {
+              echo "⚠️ Admin user seeder failed, continuing..."
+            }
+
             # Cache configuration
             echo "📦 Caching configuration..."
             docker-compose -p inspirtag exec -T app php artisan config:cache

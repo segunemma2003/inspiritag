@@ -290,9 +290,61 @@ Route::post('/working-upload-url', [PostController::class, 'getWorkingUploadUrl'
     Route::post('/analytics/post/{post}/track-view', [AnalyticsController::class, 'trackView']);
 
     // Admin routes
-    Route::middleware('admin')->group(function () {
-        Route::post('/categories', [CategoryController::class, 'store']);
-        Route::put('/categories/{category}', [CategoryController::class, 'update']);
-        Route::delete('/categories/{category}', [CategoryController::class, 'destroy']);
+    Route::prefix('admin/v1')->middleware('admin')->group(function () {
+        Route::get('/stats/overview', [\App\Http\Controllers\Api\Admin\DashboardController::class, 'overview']);
+        Route::get('/stats/users', [\App\Http\Controllers\Api\Admin\DashboardController::class, 'userStats']);
+        Route::get('/stats/posts', [\App\Http\Controllers\Api\Admin\DashboardController::class, 'postStats']);
+        Route::get('/stats/engagement', [\App\Http\Controllers\Api\Admin\DashboardController::class, 'engagementStats']);
+        Route::get('/stats/categories', [\App\Http\Controllers\Api\Admin\DashboardController::class, 'categoryDistribution']);
+        Route::get('/stats/active-users', [\App\Http\Controllers\Api\Admin\DashboardController::class, 'activeUsers']);
+        Route::get('/stats/subscriptions', [\App\Http\Controllers\Api\Admin\DashboardController::class, 'subscriptionStats']);
+        Route::get('/stats/subscriptions/trend', [\App\Http\Controllers\Api\Admin\DashboardController::class, 'subscriptionTrend']);
+        Route::get('/stats/subscriptions/top-creators', [\App\Http\Controllers\Api\Admin\DashboardController::class, 'topCreators']);
+
+        Route::get('/posts', [\App\Http\Controllers\Api\Admin\PostController::class, 'index']);
+        Route::get('/posts/{post}', [\App\Http\Controllers\Api\Admin\PostController::class, 'show']);
+        Route::post('/posts/{post}/feature', [\App\Http\Controllers\Api\Admin\PostController::class, 'feature']);
+        Route::delete('/posts/{post}/feature', [\App\Http\Controllers\Api\Admin\PostController::class, 'unfeature']);
+        Route::post('/posts/{post}/block', [\App\Http\Controllers\Api\Admin\PostController::class, 'block']);
+        Route::delete('/posts/{post}/block', [\App\Http\Controllers\Api\Admin\PostController::class, 'unblock']);
+        Route::post('/posts/{post}/flag', [\App\Http\Controllers\Api\Admin\PostController::class, 'flag']);
+        Route::delete('/posts/{post}/flag', [\App\Http\Controllers\Api\Admin\PostController::class, 'unflag']);
+
+        Route::get('/reports/posts', [\App\Http\Controllers\Api\Admin\ReportController::class, 'index']);
+        Route::patch('/reports/posts/{report}', [\App\Http\Controllers\Api\Admin\ReportController::class, 'update']);
+
+        Route::get('/users', [\App\Http\Controllers\Api\Admin\UserController::class, 'index']);
+        Route::get('/users/{user}', [\App\Http\Controllers\Api\Admin\UserController::class, 'show']);
+        Route::get('/users/{user}/followers', [\App\Http\Controllers\Api\Admin\UserController::class, 'followers']);
+        Route::get('/users/{user}/following', [\App\Http\Controllers\Api\Admin\UserController::class, 'following']);
+        Route::get('/users/{user}/stats', [\App\Http\Controllers\Api\Admin\UserController::class, 'stats']);
+        Route::post('/users/{user}/block', [\App\Http\Controllers\Api\Admin\UserController::class, 'block']);
+        Route::delete('/users/{user}/block', [\App\Http\Controllers\Api\Admin\UserController::class, 'unblock']);
+        Route::delete('/users/{user}', [\App\Http\Controllers\Api\Admin\UserController::class, 'destroy']);
+
+        Route::get('/categories', [\App\Http\Controllers\Api\Admin\CategoryController::class, 'index']);
+        Route::post('/categories', [\App\Http\Controllers\Api\Admin\CategoryController::class, 'store']);
+        Route::get('/categories/{category}', [\App\Http\Controllers\Api\Admin\CategoryController::class, 'show']);
+        Route::put('/categories/{category}', [\App\Http\Controllers\Api\Admin\CategoryController::class, 'update']);
+        Route::delete('/categories/{category}', [\App\Http\Controllers\Api\Admin\CategoryController::class, 'destroy']);
+        Route::get('/categories/{category}/stats', [\App\Http\Controllers\Api\Admin\CategoryController::class, 'stats']);
+
+        Route::get('/tags', [\App\Http\Controllers\Api\Admin\TagController::class, 'index']);
+        Route::post('/tags', [\App\Http\Controllers\Api\Admin\TagController::class, 'store']);
+        Route::put('/tags/{tag}', [\App\Http\Controllers\Api\Admin\TagController::class, 'update']);
+        Route::delete('/tags/{tag}', [\App\Http\Controllers\Api\Admin\TagController::class, 'destroy']);
+        Route::get('/tags/{tag}/stats', [\App\Http\Controllers\Api\Admin\TagController::class, 'stats']);
+        Route::get('/tags/trending', [\App\Http\Controllers\Api\Admin\TagController::class, 'trending']);
+
+        Route::get('/subscriptions/plans', [\App\Http\Controllers\Api\Admin\SubscriptionController::class, 'plans']);
+        Route::post('/subscriptions/plans', [\App\Http\Controllers\Api\Admin\SubscriptionController::class, 'storePlan']);
+        Route::put('/subscriptions/plans/{plan}', [\App\Http\Controllers\Api\Admin\SubscriptionController::class, 'updatePlan']);
+        Route::delete('/subscriptions/plans/{plan}', [\App\Http\Controllers\Api\Admin\SubscriptionController::class, 'deletePlan']);
+        Route::get('/subscriptions/subscribers', [\App\Http\Controllers\Api\Admin\SubscriptionController::class, 'subscribers']);
+        Route::get('/subscriptions/stats', [\App\Http\Controllers\Api\Admin\SubscriptionController::class, 'stats']);
+        Route::get('/subscriptions/trend', [\App\Http\Controllers\Api\Admin\SubscriptionController::class, 'trend']);
+        Route::get('/subscriptions/top-creators', [\App\Http\Controllers\Api\Admin\SubscriptionController::class, 'topCreators']);
+
+        Route::get('/exports/{type}', [\App\Http\Controllers\Api\Admin\ExportController::class, 'handle']);
     });
 });

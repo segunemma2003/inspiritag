@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\SubscriptionPlan;
 use App\Models\User;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Http;
@@ -13,6 +14,22 @@ class AppleInAppPurchaseService
     const APPLE_PRODUCTION_URL = 'https://buy.itunes.apple.com/verifyReceipt';
     const SUBSCRIPTION_DURATION_DAYS = 30;
     const PROFESSIONAL_PRODUCT_ID = 'com.inspirtag.professional_monthly';
+
+    protected static function allowedProductIds(): array
+    {
+        $ids = SubscriptionPlan::whereNotNull('apple_product_id')
+            ->where('apple_product_id', '!=', '')
+            ->pluck('apple_product_id')
+            ->filter()
+            ->values()
+            ->toArray();
+
+        if (empty($ids)) {
+            $ids[] = config('services.apple.professional_product_id', self::PROFESSIONAL_PRODUCT_ID);
+        }
+
+        return array_unique($ids);
+    }
 
     public static function validateReceipt(string $receiptData, bool $isProduction = true): array
     {
@@ -98,16 +115,16 @@ class AppleInAppPurchaseService
         $transactionId = $latestTransaction['transaction_id'] ?? null;
         $productId = $latestTransaction['product_id'] ?? null;
 
-        // Validate product ID matches expected professional subscription
-        if ($productId !== self::PROFESSIONAL_PRODUCT_ID) {
+        $allowedProducts = self::allowedProductIds();
+        if (!$productId || !in_array($productId, $allowedProducts, true)) {
             Log::warning('Invalid product ID received', [
-                'expected' => self::PROFESSIONAL_PRODUCT_ID,
+                'allowed' => $allowedProducts,
                 'received' => $productId,
                 'user_id' => $user->id,
             ]);
             return [
                 'success' => false,
-                'message' => 'Invalid subscription product. Expected: ' . self::PROFESSIONAL_PRODUCT_ID,
+                'message' => 'Invalid subscription product. Received: ' . ($productId ?? 'none'),
                 'error' => 'Product ID mismatch',
             ];
         }
@@ -171,10 +188,10 @@ class AppleInAppPurchaseService
                 ];
             }
 
-            // Validate product ID matches expected professional subscription
-            if ($productId && $productId !== self::PROFESSIONAL_PRODUCT_ID) {
+            $allowedProducts = self::allowedProductIds();
+            if ($productId && !in_array($productId, $allowedProducts, true)) {
                 Log::warning('Invalid product ID in webhook notification', [
-                    'expected' => self::PROFESSIONAL_PRODUCT_ID,
+                    'allowed' => $allowedProducts,
                     'received' => $productId,
                     'transaction_id' => $originalTransactionId,
                 ]);

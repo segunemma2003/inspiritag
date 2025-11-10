@@ -27,6 +27,15 @@ class Post extends Model
         'views_count',
         'impressions_count',
         'reach_count',
+        'is_featured',
+        'featured_at',
+        'is_flagged',
+        'flagged_at',
+        'flagged_reason',
+        'is_blocked',
+        'blocked_at',
+        'blocked_reason',
+        'status',
     ];
 
     protected function casts(): array
@@ -42,6 +51,12 @@ class Post extends Model
             'views_count' => 'integer',
             'impressions_count' => 'integer',
             'reach_count' => 'integer',
+            'is_featured' => 'boolean',
+            'featured_at' => 'datetime',
+            'is_flagged' => 'boolean',
+            'flagged_at' => 'datetime',
+            'is_blocked' => 'boolean',
+            'blocked_at' => 'datetime',
         ];
     }
 
@@ -98,5 +113,10 @@ class Post extends Model
     public function analytics(): HasMany
     {
         return $this->hasMany(PostAnalytic::class);
+    }
+
+    public function reports(): HasMany
+    {
+        return $this->hasMany(PostReport::class);
     }
 }

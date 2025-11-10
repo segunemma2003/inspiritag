@@ -29,6 +29,10 @@ class User extends Authenticatable
         'is_business',
         'is_admin',
         'is_professional',
+        'is_blocked',
+        'blocked_at',
+        'blocked_reason',
+        'status',
         'last_seen',
         'interests',
         'notification_preferences',
@@ -75,7 +79,9 @@ class User extends Authenticatable
             'is_business' => 'boolean',
             'is_admin' => 'boolean',
             'is_professional' => 'boolean',
+            'is_blocked' => 'boolean',
             'last_seen' => 'datetime',
+            'blocked_at' => 'datetime',
             'subscription_started_at' => 'datetime',
             'subscription_expires_at' => 'datetime',
             'interests' => 'array',
@@ -84,7 +90,7 @@ class User extends Authenticatable
         ];
     }
 
-    
+
     public function posts()
     {
         return $this->hasMany(Post::class);
