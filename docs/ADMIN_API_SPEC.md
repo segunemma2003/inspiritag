@@ -22,10 +22,101 @@ _Last updated: {{DATE}}_
 -   **Sorting convention**: `?sort=-created_at` (leading minus for descending).
 -   **Time ranges**: Provide a reusable enum `range` query param (`today`, `7d`, `30d`, `90d`, `month`, `quarter`, `year`, `custom`) paired with date filters when `custom`.
 
+### 1.1 Response Pattern (Applies to Every Endpoint)
+
+#### Success
+
+```json
+{
+    "success": true,
+    "message": "Optional human-readable note",
+    "data": {
+        "...": "resource specific payload"
+    },
+    "meta": {
+        "current_page": 1,
+        "per_page": 20,
+        "total": 200,
+        "last_page": 10
+    }
+}
+```
+
+-   `meta` appears only for list/paginated endpoints.
+-   `message` is optional (included for destructive/side-effect operations).
+
+#### Validation Error (HTTP 422)
+
+```json
+{
+    "success": false,
+    "message": "Validation errors",
+    "errors": {
+        "field": ["Error message..."]
+    }
+}
+```
+
+#### Authorization Error (HTTP 401/403)
+
+```json
+{
+    "success": false,
+    "message": "Unauthorized. Admin access required."
+}
+```
+
+> **Note:** All endpoints documented below follow this response contract. Only the `data` payload shape differs per resource.
+
 ## 2. Authentication & Authorization
 
 -   Reuse existing JWT authentication (Laravel Passport/Sanctum). Admin check enforced via middleware.
 -   Include endpoint to issue admin tokens if not already present (optional).
+
+### 2.1 Obtaining an Admin Token
+
+1. **Log in** via the public login endpoint:
+
+    `POST /api/login`
+
+    ```json
+    {
+        "email": "admin@inspirtag.com",
+        "password": "admin123"
+    }
+    ```
+
+    The seeder `AdminUserSeeder` (run automatically during deployment) ensures this admin user exists if it is missing.
+
+2. **Response**
+
+    ```json
+    {
+        "success": true,
+        "message": "Login successful",
+        "data": {
+            "user": {
+                "id": 1,
+                "email": "admin@inspirtag.com",
+                "is_admin": true,
+                "token_type": "Bearer",
+                "...": "..."
+            },
+            "token": "<SANCTUM_TOKEN>",
+            "token_type": "Bearer"
+        }
+    }
+    ```
+
+3. **Use the token** in every admin request:
+
+    ```http
+    Authorization: Bearer <SANCTUM_TOKEN>
+    ```
+
+4. **Log out** (optional) by calling `POST /api/logout` with the same bearer token.
+
+> Any admin user (where `is_admin = true`) can authenticate this way. Ensure email is verified; the seeded admin is already verified.
 
 ## 3. High-Level Architecture
 
