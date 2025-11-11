@@ -230,27 +230,73 @@ class DashboardController extends Controller
     {
         $range = $this->resolveDateRange($request);
 
-        $byHour = User::selectRaw('HOUR(last_seen) as hour, COUNT(*) as count')
+        $hourlyRaw = User::selectRaw('HOUR(last_seen) as hour, COUNT(*) as count')
             ->whereNotNull('last_seen')
             ->whereBetween('last_seen', [$range['start'], $range['end']])
             ->groupBy('hour')
             ->orderBy('hour')
-            ->get()
-            ->map(fn ($row) => ['hour' => (int) $row->hour, 'count' => (int) $row->count]);
+            ->pluck('count', 'hour');
 
-        $byDay = User::selectRaw('DATE(last_seen) as date, COUNT(*) as count')
+        $byHour = collect(range(0, 23))->map(function ($hour) use ($hourlyRaw) {
+            return [
+                'hour' => $hour,
+                'count' => (int) ($hourlyRaw[$hour] ?? 0),
+            ];
+        });
+
+        $dailyRaw = User::selectRaw('DATE(last_seen) as date, COUNT(*) as count')
             ->whereNotNull('last_seen')
             ->whereBetween('last_seen', [$range['start'], $range['end']])
             ->groupBy('date')
             ->orderBy('date')
-            ->get()
-            ->map(fn ($row) => ['date' => $row->date, 'count' => (int) $row->count]);
+            ->get();
+
+        $byDay = $dailyRaw->map(fn ($row) => ['date' => $row->date, 'count' => (int) $row->count]);
+
+        $dowRaw = User::selectRaw('DAYOFWEEK(last_seen) as dow, COUNT(*) as count')
+            ->whereNotNull('last_seen')
+            ->whereBetween('last_seen', [$range['start'], $range['end']])
+            ->groupBy('dow')
+            ->pluck('count', 'dow');
+
+        $dayNames = [1 => 'Sunday', 2 => 'Monday', 3 => 'Tuesday', 4 => 'Wednesday', 5 => 'Thursday', 6 => 'Friday', 7 => 'Saturday'];
+        $byDayOfWeek = collect(range(1, 7))->map(function ($dow) use ($dowRaw, $dayNames) {
+            return [
+                'day' => $dayNames[$dow],
+                'count' => (int) ($dowRaw[$dow] ?? 0),
+            ];
+        });
+
+        $timeSlots = [
+            'night' => [0, 5],
+            'morning' => [6, 11],
+            'afternoon' => [12, 17],
+            'evening' => [18, 23],
+        ];
+
+        $timeSlotDistribution = collect($timeSlots)->map(function ($range) use ($hourlyRaw) {
+            [$startHour, $endHour] = $range;
+            $count = 0;
+            for ($hour = $startHour; $hour <= $endHour; $hour++) {
+                $count += (int) ($hourlyRaw[$hour] ?? 0);
+            }
+            return $count;
+        });
+
+        $timeSlotsResponse = $timeSlotDistribution->map(function ($count, $slot) {
+            return [
+                'slot' => $slot,
+                'count' => $count,
+            ];
+        })->values();
 
         return response()->json([
             'success' => true,
             'data' => [
                 'by_hour' => $byHour,
                 'by_day' => $byDay,
+                'by_day_of_week' => $byDayOfWeek,
+                'time_slots' => $timeSlotsResponse,
             ],
         ]);
     }

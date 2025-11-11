@@ -31,6 +31,37 @@ class CategoryController extends Controller
             ->orderBy('name')
             ->get();
 
+        if ($categories->isNotEmpty()) {
+            $categoryTags = DB::table('post_tags')
+                ->join('posts', 'posts.id', '=', 'post_tags.post_id')
+                ->join('tags', 'tags.id', '=', 'post_tags.tag_id')
+                ->whereIn('posts.category_id', $categories->pluck('id'))
+                ->select(
+                    'posts.category_id',
+                    'tags.id as tag_id',
+                    'tags.name',
+                    'tags.slug',
+                    DB::raw('COUNT(post_tags.tag_id) as usage_count')
+                )
+                ->groupBy('posts.category_id', 'tags.id', 'tags.name', 'tags.slug')
+                ->orderByDesc('usage_count')
+                ->get()
+                ->groupBy('category_id');
+
+            $categories->transform(function ($category) use ($categoryTags) {
+                $tags = $categoryTags->get($category->id, collect());
+                $category->setAttribute('tags', $tags->map(function ($tag) {
+                    return [
+                        'id' => $tag->tag_id,
+                        'name' => $tag->name,
+                        'slug' => $tag->slug,
+                        'usage_count' => (int) $tag->usage_count,
+                    ];
+                })->values());
+                return $category;
+            });
+        }
+
         return response()->json([
             'success' => true,
             'data' => $categories,
@@ -40,6 +71,29 @@ class CategoryController extends Controller
     public function show(Category $category)
     {
         $category->loadCount('posts');
+
+        $tagRows = DB::table('post_tags')
+            ->join('posts', 'posts.id', '=', 'post_tags.post_id')
+            ->join('tags', 'tags.id', '=', 'post_tags.tag_id')
+            ->where('posts.category_id', $category->id)
+            ->select(
+                'tags.id as tag_id',
+                'tags.name',
+                'tags.slug',
+                DB::raw('COUNT(post_tags.tag_id) as usage_count')
+            )
+            ->groupBy('tags.id', 'tags.name', 'tags.slug')
+            ->orderByDesc('usage_count')
+            ->get();
+
+        $category->setAttribute('tags', $tagRows->map(function ($tag) {
+            return [
+                'id' => $tag->tag_id,
+                'name' => $tag->name,
+                'slug' => $tag->slug,
+                'usage_count' => (int) $tag->usage_count,
+            ];
+        })->values());
 
         return response()->json([
             'success' => true,

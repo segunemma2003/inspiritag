@@ -22,7 +22,8 @@ class PostController extends Controller
             ->with([
                 'user:id,username,full_name,profile_picture',
                 'category:id,name',
-                'tags:id,name',
+                'tags:id,name,slug',
+                'taggedUsers:id,username,full_name,profile_picture',
             ])
             ->withCount([
                 'reports as reports_pending_count' => function (Builder $builder) {
@@ -99,7 +100,8 @@ class PostController extends Controller
         $post->load([
             'user:id,username,full_name,profile_picture,is_business,is_professional',
             'category:id,name',
-            'tags:id,name',
+            'tags:id,name,slug',
+            'taggedUsers:id,username,full_name,profile_picture',
             'reports' => fn ($query) => $query->latest()->limit(20)->with(['reporter:id,username,full_name']),
         ])->loadCount('reports');
 
