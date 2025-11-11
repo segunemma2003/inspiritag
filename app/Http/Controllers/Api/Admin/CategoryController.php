@@ -12,11 +12,22 @@ class CategoryController extends Controller
 {
     use HandlesDateFilters;
 
-    public function index()
+    public function index(Request $request)
     {
-        $categories = Category::query()
+        $search = trim((string) $request->input('search', ''));
+
+        $query = Category::query()
             ->select('id', 'name', 'description', 'is_active')
-            ->withCount('posts')
+            ->withCount('posts');
+
+        if ($search !== '') {
+            $query->where(function ($builder) use ($search) {
+                $builder->where('name', 'like', "%{$search}%")
+                    ->orWhere('description', 'like', "%{$search}%");
+            });
+        }
+
+        $categories = $query
             ->orderBy('name')
             ->get();
 
