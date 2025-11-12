@@ -15,10 +15,6 @@ return Application::configure(basePath: dirname(__DIR__))
         // Apply CORS middleware to API routes
         $middleware->api(prepend: [
             \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
-        ]);
-
-        // Add CORS middleware globally for API routes
-        $middleware->web(append: [
             \Illuminate\Http\Middleware\HandleCors::class,
         ]);
 

@@ -232,12 +232,12 @@ _Last updated: {{DATE}}_
 
 `GET /api/admin/v1/stats/active-users`
 
-- Returns aggregated data by hour/day-of-week/time-of-day to see when users are active.
-- Response keys:
-  - `by_hour`: 24 slots (0-23) with counts.
-  - `by_day`: daily totals across the range.
-  - `by_day_of_week`: Sunday–Saturday breakdown.
-  - `time_slots`: morning/afternoon/evening/night rollups.
+-   Returns aggregated data by hour/day-of-week/time-of-day to see when users are active.
+-   Response keys:
+    -   `by_hour`: 24 slots (0-23) with counts.
+    -   `by_day`: daily totals across the range.
+    -   `by_day_of_week`: Sunday–Saturday breakdown.
+    -   `time_slots`: morning/afternoon/evening/night rollups.
 
 ### 4.7 Subscription Analytics
 
