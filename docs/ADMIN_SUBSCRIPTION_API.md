@@ -253,6 +253,8 @@ Retrieve a paginated list of all subscribers with detailed information including
 
 **Authentication**: Required (Admin)
 
+**Important Note**: Only users who have actually subscribed (have `subscription_started_at` set) are returned. Users without actual subscriptions are excluded, even if they have a default `subscription_status` value.
+
 **Query Parameters**:
 
 -   `status` (optional, string): Filter by subscription status (`active`, `expired`, `cancelled`)
@@ -445,6 +447,8 @@ Retrieve comprehensive subscriber statistics including monthly and daily trends,
 **Endpoint**: `GET /api/admin/v1/subscriptions/subscribers/statistics`
 
 **Authentication**: Required (Admin)
+
+**Important Note**: All statistics only count users who have actually subscribed (have `subscription_started_at` set). Users without actual subscriptions are excluded from all counts.
 
 **Query Parameters**:
 
@@ -717,7 +721,9 @@ All endpoints may return the following error responses:
 
 5. **Default Plan**: Only one subscription plan can be set as default. Setting a new default plan will automatically remove the default flag from the previous default plan.
 
-6. **Duration Formatting**: The `total_duration_formatted` field in subscriber lists uses human-readable format:
+6. **Subscriber Filtering**: All subscriber-related endpoints and statistics only include users who have actually subscribed (have `subscription_started_at` set). Users with default `subscription_status` values but no actual subscription history are excluded.
+
+7. **Duration Formatting**: The `total_duration_formatted` field in subscriber lists uses human-readable format:
     - Less than 7 days: "X day(s)"
     - Less than 30 days: "X week(s) Y day(s)"
     - Less than 365 days: "X month(s) Y week(s)"

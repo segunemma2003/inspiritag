@@ -305,14 +305,16 @@ class DashboardController extends Controller
     {
         $range = $this->resolveDateRange($request);
 
-        $activeSubscribers = User::where('subscription_status', 'active')->count();
-        $totalSubscribers = User::whereNotNull('subscription_status')
-            ->where('subscription_status', '!=', '')
-            ->count();
-        $newSubscribers = User::where('subscription_status', 'active')
+        // Only count users who actually subscribed (have subscription_started_at)
+        $activeSubscribers = User::whereNotNull('subscription_started_at')
+            ->where('subscription_status', 'active')->count();
+        $totalSubscribers = User::whereNotNull('subscription_started_at')->count();
+        $newSubscribers = User::whereNotNull('subscription_started_at')
+            ->where('subscription_status', 'active')
             ->whereBetween('subscription_started_at', [$range['start'], $range['end']])
             ->count();
-        $previousSubscribers = User::where('subscription_status', 'active')
+        $previousSubscribers = User::whereNotNull('subscription_started_at')
+            ->where('subscription_status', 'active')
             ->whereBetween('subscription_started_at', [$range['previous_start'], $range['previous_end']])
             ->count();
 
@@ -321,9 +323,13 @@ class DashboardController extends Controller
 
         $monthlyRevenue = round($activeSubscribers * $planPrice, 2);
 
+        // Only count users who actually subscribed (have subscription_started_at)
         $planDistribution = SubscriptionPlan::query()
             ->select('subscription_plans.id', 'subscription_plans.name', DB::raw('COUNT(users.id) as subscribers'))
-            ->leftJoin('users', 'users.apple_product_id', '=', 'subscription_plans.apple_product_id')
+            ->leftJoin('users', function ($join) {
+                $join->on('users.apple_product_id', '=', 'subscription_plans.apple_product_id')
+                    ->whereNotNull('users.subscription_started_at');
+            })
             ->where('subscription_plans.is_active', true)
             ->groupBy('subscription_plans.id', 'subscription_plans.name')
             ->get()
@@ -358,8 +364,9 @@ class DashboardController extends Controller
         $now = Carbon::now()->endOfMonth();
         $start = $now->copy()->subMonths($months - 1)->startOfMonth();
 
+        // Only count users who actually subscribed (have subscription_started_at)
+        // Include all subscription statuses, not just active
         $trend = User::selectRaw('DATE_FORMAT(subscription_started_at, "%Y-%m") as month, COUNT(*) as count')
-            ->where('subscription_status', 'active')
             ->whereNotNull('subscription_started_at')
             ->whereBetween('subscription_started_at', [$start, $now])
             ->groupBy('month')

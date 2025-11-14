@@ -106,9 +106,9 @@ class SubscriptionController extends Controller
 
     public function subscribers(Request $request)
     {
+        // Only show users who have actually subscribed (have subscription_started_at)
         $query = User::query()
-            ->whereNotNull('subscription_status')
-            ->where('subscription_status', '!=', '')
+            ->whereNotNull('subscription_started_at')
             ->with(['subscriptionPlan'])
             ->withCount('posts')
             ->orderByDesc('subscription_started_at');
@@ -194,10 +194,11 @@ class SubscriptionController extends Controller
 
     public function cancelSubscription(Request $request, User $user)
     {
-        if (!$user->subscription_status || $user->subscription_status === '') {
+        // Check if user actually has a subscription (has subscription_started_at)
+        if (!$user->subscription_started_at) {
             return response()->json([
                 'success' => false,
-                'message' => 'User does not have an active subscription to cancel.',
+                'message' => 'User does not have a subscription to cancel.',
             ], 422);
         }
 
@@ -278,7 +279,7 @@ class SubscriptionController extends Controller
         $now = Carbon::now()->endOfDay();
         $start = $now->copy()->subMonths($months)->startOfDay();
 
-        // Statistics by month
+        // Statistics by month - only count users who actually subscribed
         $monthlyStats = User::selectRaw('
                 DATE_FORMAT(subscription_started_at, "%Y-%m") as month,
                 COUNT(*) as total_subscribers,
@@ -286,8 +287,7 @@ class SubscriptionController extends Controller
                 SUM(CASE WHEN subscription_status = "expired" THEN 1 ELSE 0 END) as expired_subscribers,
                 SUM(CASE WHEN subscription_status = "cancelled" THEN 1 ELSE 0 END) as cancelled_subscribers
             ')
-            ->whereNotNull('subscription_status')
-            ->where('subscription_status', '!=', '')
+            ->whereNotNull('subscription_started_at')
             ->whereBetween('subscription_started_at', [$start, $now])
             ->groupBy('month')
             ->orderBy('month')
@@ -311,8 +311,7 @@ class SubscriptionController extends Controller
                 COUNT(*) as total_subscribers,
                 SUM(CASE WHEN subscription_status = "active" THEN 1 ELSE 0 END) as active_subscribers
             ')
-            ->whereNotNull('subscription_status')
-            ->where('subscription_status', '!=', '')
+            ->whereNotNull('subscription_started_at')
             ->whereBetween('subscription_started_at', [$dayStart, $now])
             ->groupBy('date')
             ->orderBy('date')
@@ -325,23 +324,23 @@ class SubscriptionController extends Controller
                 ];
             });
 
-        // Overall statistics
+        // Overall statistics - only count users who actually subscribed
         $overallStats = [
-            'total_subscribers' => User::whereNotNull('subscription_status')
-                ->where('subscription_status', '!=', '')
-                ->count(),
-            'active_subscribers' => User::where('subscription_status', 'active')->count(),
-            'expired_subscribers' => User::where('subscription_status', 'expired')->count(),
-            'cancelled_subscribers' => User::where('subscription_status', 'cancelled')->count(),
+            'total_subscribers' => User::whereNotNull('subscription_started_at')->count(),
+            'active_subscribers' => User::whereNotNull('subscription_started_at')
+                ->where('subscription_status', 'active')->count(),
+            'expired_subscribers' => User::whereNotNull('subscription_started_at')
+                ->where('subscription_status', 'expired')->count(),
+            'cancelled_subscribers' => User::whereNotNull('subscription_started_at')
+                ->where('subscription_status', 'cancelled')->count(),
         ];
 
-        // Statistics by plan
+        // Statistics by plan - only count users who actually subscribed
         $planStats = SubscriptionPlan::query()
             ->select('subscription_plans.id', 'subscription_plans.name', DB::raw('COUNT(users.id) as subscribers'))
             ->leftJoin('users', function ($join) {
                 $join->on('users.apple_product_id', '=', 'subscription_plans.apple_product_id')
-                    ->whereNotNull('users.subscription_status')
-                    ->where('users.subscription_status', '!=', '');
+                    ->whereNotNull('users.subscription_started_at');
             })
             ->groupBy('subscription_plans.id', 'subscription_plans.name')
             ->get()
