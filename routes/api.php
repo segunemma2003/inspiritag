@@ -341,6 +341,9 @@ Route::post('/working-upload-url', [PostController::class, 'getWorkingUploadUrl'
         Route::put('/subscriptions/plans/{plan}', [\App\Http\Controllers\Api\Admin\SubscriptionController::class, 'updatePlan']);
         Route::delete('/subscriptions/plans/{plan}', [\App\Http\Controllers\Api\Admin\SubscriptionController::class, 'deletePlan']);
         Route::get('/subscriptions/subscribers', [\App\Http\Controllers\Api\Admin\SubscriptionController::class, 'subscribers']);
+        Route::get('/subscriptions/subscribers/statistics', [\App\Http\Controllers\Api\Admin\SubscriptionController::class, 'subscriberStatistics']);
+        Route::post('/subscriptions/subscribers/{user}/cancel', [\App\Http\Controllers\Api\Admin\SubscriptionController::class, 'cancelSubscription']);
+        Route::post('/subscriptions/subscribers/{user}/activate', [\App\Http\Controllers\Api\Admin\SubscriptionController::class, 'activateSubscription']);
         Route::get('/subscriptions/stats', [\App\Http\Controllers\Api\Admin\SubscriptionController::class, 'stats']);
         Route::get('/subscriptions/trend', [\App\Http\Controllers\Api\Admin\SubscriptionController::class, 'trend']);
         Route::get('/subscriptions/top-creators', [\App\Http\Controllers\Api\Admin\SubscriptionController::class, 'topCreators']);

@@ -32,4 +32,9 @@ class SubscriptionPlan extends Model
     {
         return $query->where('is_active', true);
     }
+
+    public function subscribers()
+    {
+        return $this->hasMany(User::class, 'apple_product_id', 'apple_product_id');
+    }
 }

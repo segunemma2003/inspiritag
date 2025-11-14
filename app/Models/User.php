@@ -156,6 +156,11 @@ class User extends Authenticatable
         return $this->hasMany(PostAnalytic::class);
     }
 
+    public function subscriptionPlan()
+    {
+        return $this->belongsTo(SubscriptionPlan::class, 'apple_product_id', 'apple_product_id');
+    }
+
     /**
      * Get unread notifications count
      */
