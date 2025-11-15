@@ -25,9 +25,9 @@ return [
 
     'allowed_headers' => ['*'],
 
-    'exposed_headers' => ['Authorization'],
+    'exposed_headers' => ['Authorization', 'X-Requested-With'],
 
-    'max_age' => 0,
+    'max_age' => 3600,
 
     'supports_credentials' => false,
 

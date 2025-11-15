@@ -12,16 +12,21 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        // Apply CORS middleware first to handle preflight requests
+        // CORS must be handled FIRST before any other middleware
+        // This ensures preflight OPTIONS requests are handled correctly
+        $middleware->priority([
+            \Illuminate\Http\Middleware\HandleCors::class,
+        ]);
+
+        // Apply CORS middleware globally to API routes
         $middleware->api(prepend: [
             \Illuminate\Http\Middleware\HandleCors::class,
         ]);
 
-        // Apply Sanctum middleware only to authenticated routes
-        $middleware->api(append: [
-            \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
-        ]);
-
+        // Apply Sanctum middleware conditionally (only for stateful frontends)
+        // Don't apply globally as it can interfere with CORS on public routes
+        // It will be applied via route middleware where needed
+        
         // Register custom middleware aliases
         $middleware->alias([
             'admin' => \App\Http\Middleware\EnsureAdmin::class,
