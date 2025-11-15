@@ -348,6 +348,8 @@ Route::post('/working-upload-url', [PostController::class, 'getWorkingUploadUrl'
         Route::get('/subscriptions/trend', [\App\Http\Controllers\Api\Admin\SubscriptionController::class, 'trend']);
         Route::get('/subscriptions/top-creators', [\App\Http\Controllers\Api\Admin\SubscriptionController::class, 'topCreators']);
 
+        Route::post('/change-password', [AuthController::class, 'changePassword']);
+
         Route::get('/exports/{type}', [\App\Http\Controllers\Api\Admin\ExportController::class, 'handle']);
     });
 });
