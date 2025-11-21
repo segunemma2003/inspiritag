@@ -69,6 +69,7 @@ Route::post('/reset-password', [AuthController::class, 'resetPassword']);
 Route::post('/verify-firebase-token', [AuthController::class, 'verifyFirebaseToken']);
 Route::get('/interests', [UserController::class, 'getInterests']); // Public interests list
 Route::get('/categories', [CategoryController::class, 'index']); // Public categories list
+Route::get('/subscription/plans', [SubscriptionController::class, 'plans']); // Public - get all active subscription plans
 
 // Debug routes (public for testing)
 Route::get('/debug/s3-config', [DebugController::class, 'checkS3Config']);

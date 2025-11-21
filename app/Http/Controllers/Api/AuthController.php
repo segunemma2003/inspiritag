@@ -8,6 +8,7 @@ use App\Models\Device;
 use App\Models\Otp;
 use App\Notifications\SendOtpNotification;
 use App\Services\CacheHelperService;
+use App\Services\SubscriptionService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
@@ -445,7 +446,7 @@ class AuthController extends Controller
         $user = $request->user();
 
 
-        $user->load(['followers', 'following', 'posts', 'devices']);
+        $user->load(['followers', 'following', 'posts', 'devices', 'subscriptionPlan']);
 
 
         $stats = [
@@ -491,6 +492,22 @@ class AuthController extends Controller
             ];
         }
 
+        // Get subscription information
+        $subscriptionInfo = SubscriptionService::getSubscriptionInfo($user);
+
+        // Get user's current plan if they have one
+        $currentPlan = null;
+        if ($user->subscriptionPlan) {
+            $currentPlan = [
+                'id' => $user->subscriptionPlan->id,
+                'name' => $user->subscriptionPlan->name,
+                'slug' => $user->subscriptionPlan->slug,
+                'price' => $user->subscriptionPlan->price,
+                'currency' => $user->subscriptionPlan->currency,
+                'duration_days' => $user->subscriptionPlan->duration_days,
+            ];
+        }
+
         return response()->json([
             'success' => true,
             'data' => [
@@ -521,6 +538,9 @@ class AuthController extends Controller
                 'devices' => $devices,
                 'unread_notifications_count' => $unreadNotificationsCount,
                 'business_info' => $businessInfo,
+                'subscription' => array_merge($subscriptionInfo, [
+                    'current_plan' => $currentPlan,
+                ]),
             ]
         ]);
     }

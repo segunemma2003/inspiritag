@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\SubscriptionPlan;
 use App\Services\SubscriptionService;
 use App\Services\AppleInAppPurchaseService;
 use Illuminate\Http\Request;
@@ -143,6 +144,22 @@ class SubscriptionController extends Controller
                     'Promote posts (Instagram-style ad generation feature)',
                 ]
             ]
+        ]);
+    }
+
+    /**
+     * Get all active subscription plans (public endpoint)
+     */
+    public function plans(Request $request)
+    {
+        $plans = SubscriptionPlan::where('is_active', true)
+            ->orderByDesc('is_default')
+            ->orderBy('name')
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $plans,
         ]);
     }
 }
