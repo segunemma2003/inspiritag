@@ -41,6 +41,7 @@ class Post extends Model
     protected function casts(): array
     {
         return [
+            'media_url' => 'array', // JSON array of media URLs (always array for consistency)
             'media_metadata' => 'array',
             'is_public' => 'boolean',
             'is_ads' => 'boolean',
@@ -59,6 +60,7 @@ class Post extends Model
             'blocked_at' => 'datetime',
         ];
     }
+    
 
     public function user(): BelongsTo
     {

@@ -835,18 +835,26 @@ class PostController extends Controller
 }
     /**
      * Create post after successful S3 upload
+     * Supports multiple images/videos with pre-generated S3 links
      */
     public function createFromS3(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'file_path' => 'required|string',
+            'file_path' => 'required_without:file_paths|string',
+            'file_paths' => 'required_without:file_path|array|min:1|max:10',
+            'file_paths.*' => 'string|distinct',
             'thumbnail_path' => 'nullable|string',
+            'thumbnail_paths' => 'nullable|array',
+            'thumbnail_paths.*' => 'nullable|string',
             'caption' => 'nullable|string|max:2000',
             'category_id' => 'required|exists:categories,id',
             'tags' => 'nullable|array',
             'tags.*' => 'string|max:50',
+            'tagged_users' => 'nullable|array',
+            'tagged_users.*' => 'integer|exists:users,id',
             'location' => 'nullable|string|max:255',
             'media_metadata' => 'nullable|array',
+            'is_ads' => 'nullable|boolean',
         ]);
 
         if ($validator->fails()) {
@@ -858,51 +866,116 @@ class PostController extends Controller
         }
 
         $user = $request->user();
-        $filePath = $request->file_path;
-        $thumbnailPath = $request->thumbnail_path;
+        
+        // Support both single file_path and multiple file_paths for backward compatibility
+        $filePaths = $request->has('file_paths') ? $request->file_paths : [$request->file_path];
+        $thumbnailPaths = $request->has('thumbnail_paths') ? $request->thumbnail_paths : 
+                         ($request->thumbnail_path ? [$request->thumbnail_path] : []);
 
+        // Validate that all file paths exist on S3
+        $missingFiles = [];
+        foreach ($filePaths as $index => $filePath) {
+            if (!S3Service::exists($filePath)) {
+                $missingFiles[] = "File at index {$index}: {$filePath}";
+            }
+        }
 
-        if (!S3Service::exists($filePath)) {
+        if (!empty($missingFiles)) {
             return response()->json([
                 'success' => false,
-                'message' => 'File not found on S3. Please upload first.'
+                'message' => 'Some files not found on S3. Please upload first.',
+                'missing_files' => $missingFiles
             ], 404);
         }
 
+        // Validate thumbnail paths if provided
+        foreach ($thumbnailPaths as $index => $thumbnailPath) {
+            if ($thumbnailPath && !S3Service::exists($thumbnailPath)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "Thumbnail at index {$index} not found on S3. Please upload first."
+                ], 404);
+            }
+        }
 
-        if ($thumbnailPath && !S3Service::exists($thumbnailPath)) {
+        // Determine media types and URLs
+        $mediaUrls = [];
+        $mediaTypes = [];
+        $thumbnailUrls = [];
+        $hasVideo = false;
+        $hasImage = false;
+
+        foreach ($filePaths as $index => $filePath) {
+            $extension = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
+            $isVideo = in_array($extension, ['mp4', 'mov', 'avi', 'mkv', 'webm']);
+            
+            $mediaUrl = S3Service::getUrl($filePath);
+            $mediaUrls[] = $mediaUrl;
+            $mediaTypes[] = $isVideo ? 'video' : 'image';
+            
+            if ($isVideo) {
+                $hasVideo = true;
+                // Get thumbnail for this video if provided
+                $thumbnailUrl = isset($thumbnailPaths[$index]) && $thumbnailPaths[$index] 
+                    ? S3Service::getUrl($thumbnailPaths[$index]) 
+                    : 'https://via.placeholder.com/800x600/cccccc/666666?text=Video+Thumbnail';
+                $thumbnailUrls[] = $thumbnailUrl;
+            } else {
+                $hasImage = true;
+                $thumbnailUrls[] = null; // Images don't need thumbnails
+            }
+        }
+
+        // Determine overall media type
+        if ($hasVideo && $hasImage) {
+            $mediaType = 'mixed';
+        } elseif ($hasVideo) {
+            $mediaType = 'video';
+        } else {
+            $mediaType = 'image';
+        }
+
+        // For backward compatibility, if single media, use the first thumbnail
+        $thumbnailUrl = !empty($thumbnailUrls) ? $thumbnailUrls[0] : null;
+
+        // Check if user can create ads posts
+        $isAds = $request->get('is_ads', false);
+        if ($isAds && !SubscriptionService::isProfessional($user)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Thumbnail not found on S3. Please upload first.'
-            ], 404);
+                'message' => 'Professional subscription required to create ads posts'
+            ], 403);
         }
 
-
-        $extension = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
-        $isVideo = in_array($extension, ['mp4', 'mov', 'avi', 'mkv', 'webm']);
-        $mediaType = $isVideo ? 'video' : 'image';
-
-
-        $mediaUrl = S3Service::getUrl($filePath);
-        $thumbnailUrl = $thumbnailPath ? S3Service::getUrl($thumbnailPath) : null;
-
-
-        if ($isVideo && !$thumbnailUrl) {
-            $thumbnailUrl = 'https://via.placeholder.com/800x600/cccccc/666666?text=Video+Thumbnail';
+        // Prepare media metadata with individual file info
+        $mediaMetadata = $request->media_metadata ?? [];
+        $mediaMetadata['files'] = [];
+        foreach ($filePaths as $index => $filePath) {
+            $mediaMetadata['files'][] = [
+                'file_path' => $filePath,
+                'media_url' => $mediaUrls[$index],
+                'media_type' => $mediaTypes[$index],
+                'thumbnail_url' => $thumbnailUrls[$index] ?? null,
+            ];
         }
+        $mediaMetadata['count'] = count($filePaths);
 
+        // Store media_urls as JSON array (always array for consistency)
         $post = Post::create([
             'user_id' => $user->id,
             'category_id' => $request->category_id,
             'caption' => $request->caption,
-            'media_url' => $mediaUrl,
+            'media_url' => $mediaUrls, // Always store as array
             'media_type' => $mediaType,
-            'media_metadata' => $request->media_metadata,
+            'thumbnail_url' => $thumbnailUrl,
+            'media_metadata' => $mediaMetadata,
             'location' => $request->location,
             'is_public' => true,
+            'is_ads' => $isAds,
         ]);
 
 
+        // Handle tags
         if ($request->tags) {
             foreach ($request->tags as $tagName) {
                 $tag = Tag::firstOrCreate(
@@ -914,18 +987,27 @@ class PostController extends Controller
             }
         }
 
+        // Handle tagged users
+        if ($request->tagged_users && !empty($request->tagged_users)) {
+            $userTaggingService = new UserTaggingService();
+            $userTaggingService->tagUsers($post, $request->tagged_users, $user);
+        }
 
+        // Send notifications to followers
         $followers = $user->followers()->pluck('users.id');
         if ($followers->isNotEmpty()) {
             $firebaseService = new FirebaseNotificationService();
             $firebaseService->sendNewPostNotification($user, $followers->toArray(), $post);
         }
 
+        // Load relationships
+        $post->load(['user:id,name,full_name,username,profile_picture', 'category:id,name,color,icon', 'tags:id,name,slug']);
+
         return response()->json([
             'success' => true,
             'message' => 'Post created successfully',
             'data' => [
-                'post' => $post->load(['user:id,name,full_name,username,profile_picture', 'category:id,name,color,icon', 'tags:id,name,slug']),
+                'post' => $post,
                 'is_liked' => false,
                 'is_saved' => false,
             ]
