@@ -13,13 +13,32 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Deploy to VPS
+      - name: Test SSH Connection
         uses: appleboy/ssh-action@v1.0.3
+        id: ssh-test
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           password: ${{ secrets.VPS_PASSWORD }}
-          port: 22
+          port: ${{ secrets.VPS_PORT || 22 }}
+          timeout: 60s
+          command_timeout: 10s
+          script: |
+            echo "✅ SSH connection successful"
+            echo "Server: $(hostname)"
+            echo "Uptime: $(uptime)"
+            echo "IP: $(hostname -I | awk '{print $1}')"
+
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@v1.0.3
+        if: steps.ssh-test.outcome == 'success'
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          password: ${{ secrets.VPS_PASSWORD }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          timeout: 120s
+          command_timeout: 300s
           script: |
             set -e  # Exit on any error
 
@@ -718,11 +737,33 @@ jobs:
             echo "   Test DNS: nslookup api.inspirtag.com"
             echo "   Check nginx config: ls -la /etc/nginx/conf.d/ /etc/nginx/sites-available/ 2>/dev/null"
 
+      - name: Deployment Failure Diagnostics
+        if: failure()
+        run: |
+          echo "❌ Deployment failed!"
+          echo ""
+          echo "🔍 Troubleshooting Steps:"
+          echo "1. Check if VPS server is running and accessible"
+          echo "2. Verify SSH service is running on the server: sudo systemctl status sshd"
+          echo "3. Check firewall rules: sudo ufw status or sudo iptables -L"
+          echo "4. Verify SSH port (default: 22) is open: sudo netstat -tuln | grep :22"
+          echo "5. Test SSH connection manually: ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}"
+          echo "6. Check server logs: sudo journalctl -u sshd -n 50"
+          echo "7. Verify secrets are correct in GitHub repository settings"
+          echo "8. Check if server IP address has changed"
+          echo ""
+          echo "Common Issues:"
+          echo "- Firewall blocking port 22"
+          echo "- SSH service not running"
+          echo "- Incorrect VPS_HOST, VPS_USER, or VPS_PASSWORD in secrets"
+          echo "- Server is down or unreachable"
+          echo "- Too many failed SSH attempts (temporarily blocked)"
+
       - name: Notify deployment status
         if: always()
         run: |
           if [ "${{ job.status }}" == "success" ]; then
             echo "✅ Deployment successful!"
           else
-            echo "❌ Deployment failed!"
+            echo "❌ Deployment failed! Check the diagnostics above."
           fi
