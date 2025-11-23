@@ -31,4 +31,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'admin' => \App\Http\Middleware\EnsureAdmin::class,
         ]);
+    })
+    ->withExceptions(function (Exceptions $exceptions): void {
+        // Exception handling configuration
     })->create();
