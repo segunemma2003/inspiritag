@@ -111,8 +111,8 @@ public static function getFileUrl(string $path): string
 
         if ($cdnUrl) {
             
-            if (!str_starts_with($cdnUrl, 'http:
-                $cdnUrl = 'https:
+            if (!str_starts_with($cdnUrl, 'http://') && !str_starts_with($cdnUrl, 'https://')) {
+                $cdnUrl = 'https://' . $cdnUrl;
             }
             return rtrim($cdnUrl, '/') . '/' . ltrim($path, '/');
         }
@@ -120,7 +120,7 @@ public static function getFileUrl(string $path): string
         
         $bucket = config('filesystems.disks.s3.bucket');
         $region = config('filesystems.disks.s3.region');
-        return "https:
+        return "https://{$bucket}.s3.{$region}.amazonaws.com/{$path}";
     }
     /**
      * Get file URL from S3 (alias for getFileUrl)

@@ -806,6 +806,9 @@ class PostController extends Controller
 
         $bucket = config('filesystems.disks.s3.bucket');
         $region = config('filesystems.disks.s3.region');
+        
+        // Build file URL - use S3Service method if bucket/region are missing
+        $fileUrl = S3Service::getUrl($s3Path);
 
         return response()->json([
             'success' => true,
@@ -813,7 +816,7 @@ class PostController extends Controller
                 'upload_method' => 'direct',
                 'upload_url' => $presignedUrl,
                 'file_path' => $s3Path,
-                'file_url' => "https://{$bucket}.s3.{$region}.amazonaws.com/{$s3Path}",
+                'file_url' => $fileUrl,
                 'expires_in' => 900,
                 'file_size' => $fileSize,
                 'content_type' => $contentType,
