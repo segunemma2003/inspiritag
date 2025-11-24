@@ -806,7 +806,7 @@ class PostController extends Controller
 
         $bucket = config('filesystems.disks.s3.bucket');
         $region = config('filesystems.disks.s3.region');
-        
+
         // Build file URL - use S3Service method if bucket/region are missing
         $fileUrl = S3Service::getUrl($s3Path);
 
@@ -842,34 +842,45 @@ class PostController extends Controller
      */
     public function createFromS3(Request $request)
     {
-        $validator = Validator::make($request->all(), [
-            'file_path' => 'required_without:file_paths|string',
-            'file_paths' => 'required_without:file_path|array|min:1|max:10',
-            'file_paths.*' => 'string|distinct',
-            'thumbnail_path' => 'nullable|string',
-            'thumbnail_paths' => 'nullable|array',
-            'thumbnail_paths.*' => 'nullable|string',
-            'caption' => 'nullable|string|max:2000',
-            'category_id' => 'required|exists:categories,id',
-            'tags' => 'nullable|array',
-            'tags.*' => 'string|max:50',
-            'tagged_users' => 'nullable|array',
-            'tagged_users.*' => 'integer|exists:users,id',
-            'location' => 'nullable|string|max:255',
-            'media_metadata' => 'nullable|array',
-            'is_ads' => 'nullable|boolean',
-        ]);
+        try {
+            Log::info('createFromS3 method called', ['request' => $request->all()]);
 
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation errors',
-                'errors' => $validator->errors()
-            ], 422);
-        }
+            $validator = Validator::make($request->all(), [
+                'file_path' => 'required_without:file_paths|string',
+                'file_paths' => 'required_without:file_path|array|min:1|max:10',
+                'file_paths.*' => 'string|distinct',
+                'thumbnail_path' => 'nullable|string',
+                'thumbnail_paths' => 'nullable|array',
+                'thumbnail_paths.*' => 'nullable|string',
+                'caption' => 'nullable|string|max:2000',
+                'category_id' => 'required|exists:categories,id',
+                'tags' => 'nullable|array',
+                'tags.*' => 'string|max:50',
+                'tagged_users' => 'nullable|array',
+                'tagged_users.*' => 'integer|exists:users,id',
+                'location' => 'nullable|string|max:255',
+                'media_metadata' => 'nullable|array',
+                'is_ads' => 'nullable|boolean',
+            ]);
 
-        $user = $request->user();
-        
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation errors',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            $user = $request->user();
+
+            if (!$user) {
+                Log::error('User not authenticated in createFromS3');
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Authentication required'
+                ], 401);
+            }
+
         // Support both single file_path and multiple file_paths for backward compatibility
         $filePaths = $request->has('file_paths') ? $request->file_paths : [$request->file_path];
         $thumbnailPaths = $request->has('thumbnail_paths') ? $request->thumbnail_paths : 
@@ -911,7 +922,7 @@ class PostController extends Controller
         foreach ($filePaths as $index => $filePath) {
             $extension = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
             $isVideo = in_array($extension, ['mp4', 'mov', 'avi', 'mkv', 'webm']);
-            
+
             $mediaUrl = S3Service::getUrl($filePath);
             $mediaUrls[] = $mediaUrl;
             $mediaTypes[] = $isVideo ? 'video' : 'image';
@@ -993,7 +1004,7 @@ class PostController extends Controller
         // Handle tagged users
         if ($request->tagged_users && !empty($request->tagged_users)) {
             $userTaggingService = new UserTaggingService();
-            $userTaggingService->tagUsers($post, $request->tagged_users, $user);
+            $userTaggingService->tagUsersInPost($post, $request->tagged_users, $user);
         }
 
         // Send notifications to followers
@@ -1015,6 +1026,20 @@ class PostController extends Controller
                 'is_saved' => false,
             ]
         ]);
+
+        } catch (\Exception $e) {
+            Log::error('Failed to create post from S3', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'request' => $request->all()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to create post',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     /**

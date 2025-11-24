@@ -26,7 +26,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // Apply Sanctum middleware conditionally (only for stateful frontends)
         // Don't apply globally as it can interfere with CORS on public routes
         // It will be applied via route middleware where needed
-        
+
         // Register custom middleware aliases
         $middleware->alias([
             'admin' => \App\Http\Middleware\EnsureAdmin::class,
