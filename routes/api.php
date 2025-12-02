@@ -278,6 +278,7 @@ Route::post('/working-upload-url', [PostController::class, 'getWorkingUploadUrl'
 
 
     // Subscription routes
+    Route::post('/subscription/subscribe', [SubscriptionController::class, 'subscribe']);
     Route::post('/subscription/upgrade', [SubscriptionController::class, 'upgrade']);
     Route::post('/subscription/renew', [SubscriptionController::class, 'renew']);
     Route::post('/subscription/cancel', [SubscriptionController::class, 'cancel']);

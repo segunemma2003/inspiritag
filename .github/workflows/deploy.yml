@@ -529,9 +529,26 @@ jobs:
             docker-compose -p inspirtag exec -T app php artisan route:cache
             docker-compose -p inspirtag exec -T app php artisan view:cache
 
-            # Restart queue workers
-            echo "🔄 Restarting queue workers..."
-            docker-compose -p inspirtag exec -T app php artisan queue:restart || true
+            # Check and start queue workers
+            echo "🔄 Checking queue workers..."
+            if docker-compose -p inspirtag ps queue | grep -q "Up"; then
+              echo "   ✅ Queue container is running"
+              docker-compose -p inspirtag exec -T queue php artisan queue:restart || true
+            else
+              echo "   ⚠️ Queue container not running, starting..."
+              docker-compose -p inspirtag up -d queue
+              sleep 5
+            fi
+
+            # Check and start scheduler
+            echo "⏰ Checking scheduler..."
+            if docker-compose -p inspirtag ps scheduler | grep -q "Up"; then
+              echo "   ✅ Scheduler container is running"
+            else
+              echo "   ⚠️ Scheduler container not running, starting..."
+              docker-compose -p inspirtag up -d scheduler
+              sleep 5
+            fi
 
             # Health check
             echo "🏥 Health check..."
@@ -720,6 +737,9 @@ jobs:
             echo "📋 Deployment Summary:"
             echo "   Docker nginx: $(docker-compose -p inspirtag ps nginx | grep -q 'Up' && echo '✅ Running' || echo '❌ Not running')"
             echo "   Docker app: $(docker-compose -p inspirtag ps app | grep -q 'Up' && echo '✅ Running' || echo '❌ Not running')"
+            echo "   Docker queue: $(docker-compose -p inspirtag ps queue | grep -q 'Up' && echo '✅ Running' || echo '❌ Not running')"
+            echo "   Docker scheduler: $(docker-compose -p inspirtag ps scheduler | grep -q 'Up' && echo '✅ Running' || echo '❌ Not running')"
+            echo "   Docker redis: $(docker-compose -p inspirtag ps redis | grep -q 'Up' && echo '✅ Running' || echo '❌ Not running')"
             echo "   System nginx: $(systemctl is-active --quiet nginx 2>/dev/null && echo '✅ Running' || echo '⚠️ Not running')"
             echo "   Port 8080: $(netstat -tuln 2>/dev/null | grep -q ':8080 ' && echo '✅ Listening' || echo '⚠️ Not listening')"
             if [ -f "/etc/letsencrypt/live/api.inspirtag.com/fullchain.pem" ]; then

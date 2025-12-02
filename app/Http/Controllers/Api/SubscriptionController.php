@@ -147,9 +147,6 @@ class SubscriptionController extends Controller
         ]);
     }
 
-    /**
-     * Get all active subscription plans (public endpoint)
-     */
     public function plans(Request $request)
     {
         $plans = SubscriptionPlan::where('is_active', true)
@@ -161,6 +158,70 @@ class SubscriptionController extends Controller
             'success' => true,
             'data' => $plans,
         ]);
+    }
+
+    public function subscribe(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'subscription_plan_id' => 'nullable|exists:subscription_plans,id',
+            'apple_receipt' => 'required|string',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation errors',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        $user = $request->user();
+
+        $plan = null;
+        if ($request->subscription_plan_id) {
+            $plan = SubscriptionPlan::find($request->subscription_plan_id);
+            if (!$plan || !$plan->is_active) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid or inactive subscription plan'
+                ], 422);
+            }
+        }
+
+        $result = AppleInAppPurchaseService::processSubscriptionReceipt($user, $request->apple_receipt);
+
+        if (!$result['success']) {
+            return response()->json($result, 400);
+        }
+
+        if ($plan && $result['data']['product_id'] !== $plan->apple_product_id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Receipt product ID does not match the selected plan',
+                'receipt_product_id' => $result['data']['product_id'],
+                'plan_product_id' => $plan->apple_product_id
+            ], 422);
+        }
+
+        $user->refresh();
+        $subscriptionInfo = SubscriptionService::getSubscriptionInfo($user);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Subscription activated successfully',
+            'data' => array_merge($result['data'], [
+                'subscription_info' => $subscriptionInfo,
+                'plan' => $user->subscriptionPlan ? [
+                    'id' => $user->subscriptionPlan->id,
+                    'name' => $user->subscriptionPlan->name,
+                    'slug' => $user->subscriptionPlan->slug,
+                    'price' => $user->subscriptionPlan->price,
+                    'currency' => $user->subscriptionPlan->currency,
+                    'duration_days' => $user->subscriptionPlan->duration_days,
+                    'features' => $user->subscriptionPlan->features,
+                ] : null,
+            ])
+        ], 200);
     }
 }
 

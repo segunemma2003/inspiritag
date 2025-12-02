@@ -104,6 +104,7 @@ class PostController extends Controller
                     'user:id,name,full_name,username,profile_picture',
                     'category:id,name,color,icon',
                     'tags:id,name,slug',
+                    'taggedUsers:id,name,full_name,username,profile_picture',
                 ])
                 ->paginate($perPage);
         });
