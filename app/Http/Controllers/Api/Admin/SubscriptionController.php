@@ -194,7 +194,6 @@ class SubscriptionController extends Controller
 
     public function cancelSubscription(Request $request, User $user)
     {
-        // Check if user actually has a subscription (has subscription_started_at)
         if (!$user->subscription_started_at) {
             return response()->json([
                 'success' => false,
@@ -212,7 +211,6 @@ class SubscriptionController extends Controller
         $result = SubscriptionService::cancelSubscription($user);
 
         if ($result['success']) {
-            // Also set is_professional to false when cancelled
             $user->update(['is_professional' => false]);
         }
 
@@ -226,7 +224,6 @@ class SubscriptionController extends Controller
             'duration_days' => 'sometimes|integer|min:1',
         ]);
 
-        // If plan is provided, use it; otherwise try to use user's existing plan or default
         $plan = null;
         if (!empty($data['subscription_plan_id'])) {
             $plan = SubscriptionPlan::find($data['subscription_plan_id']);
@@ -250,7 +247,6 @@ class SubscriptionController extends Controller
         $durationDays = $data['duration_days'] ?? $plan->duration_days ?? 30;
         $expiresAt = $now->copy()->addDays($durationDays);
 
-        // Update user subscription
         $user->update([
             'is_professional' => true,
             'subscription_started_at' => $now,

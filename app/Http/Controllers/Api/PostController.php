@@ -3,27 +3,24 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Post;
-use App\Models\Tag;
 use App\Models\Like;
+use App\Models\Post;
 use App\Models\Save;
 use App\Models\Share;
-use App\Models\Notification;
+use App\Models\Tag;
 use App\Models\User;
-use App\Services\FirebaseNotificationService;
-use App\Services\S3Service;
-use App\Services\PresignedUrlService;
-use App\Services\UserTaggingService;
-use App\Services\CacheHelperService;
-use App\Services\SubscriptionService;
 use App\Services\AnalyticsService;
+use App\Services\CacheHelperService;
+use App\Services\FirebaseNotificationService;
+use App\Services\PresignedUrlService;
+use App\Services\S3Service;
+use App\Services\SubscriptionService;
+use App\Services\UserTaggingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
-use Illuminate\Support\Facades\Auth;
 
 class PostController extends Controller
 {
@@ -31,7 +28,6 @@ class PostController extends Controller
     {
         $user = $request->user();
         $perPage = min($request->get('per_page', 20), 50);
-
 
         $tags = $request->get('tags', []);
         $creators = $request->get('creators', []);
@@ -41,7 +37,6 @@ class PostController extends Controller
         $sortBy = $request->get('sort_by', 'created_at');
         $sortOrder = $request->get('sort_order', 'desc');
 
-
         $filterKey = md5(serialize([
             'tags' => $tags,
             'creators' => $creators,
@@ -49,64 +44,54 @@ class PostController extends Controller
             'search' => $search,
             'media_type' => $mediaType,
             'sort_by' => $sortBy,
-            'sort_order' => $sortOrder
+            'sort_order' => $sortOrder,
         ]));
 
         $cacheKey = "posts_filtered_{$user->id}_{$filterKey}_page_{$request->get('page', 1)}_per_{$perPage}";
 
-
         $posts = Cache::remember($cacheKey, 120, function () use ($user, $perPage, $tags, $creators, $categories, $search, $mediaType, $sortBy, $sortOrder) {
             $query = Post::query();
 
-            $query->where(function($q) {
+            $query->where(function ($q) {
                 $q->where('is_public', true)
-                  ->orWhere('is_ads', true);
+                    ->orWhere('is_ads', true);
             });
 
             $followingIds = $user->following()->pluck('users.id');
             $followingIds[] = $user->id;
 
-
-
-
-
-            if (!empty($categories)) {
+            if (! empty($categories)) {
                 $query->whereIn('category_id', $categories);
             }
 
-
-            if (!empty($creators)) {
+            if (! empty($creators)) {
                 $query->whereHas('user', function ($q) use ($creators) {
                     $q->whereIn('username', $creators)
-                      ->orWhereIn('id', $creators);
+                        ->orWhereIn('id', $creators);
                 });
             }
 
-
-            if (!empty($mediaType)) {
+            if (! empty($mediaType)) {
                 $query->where('media_type', $mediaType);
             }
 
-
-            if (!empty($search)) {
+            if (! empty($search)) {
                 $query->where(function ($q) use ($search) {
-                    $q->where('caption', 'like', '%' . $search . '%')
-                      ->orWhereHas('user', function ($userQuery) use ($search) {
-                          $userQuery->where('username', 'like', '%' . $search . '%')
-                                   ->orWhere('name', 'like', '%' . $search . '%')
-                                   ->orWhere('full_name', 'like', '%' . $search . '%');
-                      });
+                    $q->where('caption', 'like', '%'.$search.'%')
+                        ->orWhereHas('user', function ($userQuery) use ($search) {
+                            $userQuery->where('username', 'like', '%'.$search.'%')
+                                ->orWhere('name', 'like', '%'.$search.'%')
+                                ->orWhere('full_name', 'like', '%'.$search.'%');
+                        });
                 });
             }
 
-
-            if (!empty($tags)) {
+            if (! empty($tags)) {
                 $query->whereHas('tags', function ($q) use ($tags) {
                     $q->whereIn('name', $tags)
-                      ->orWhereIn('slug', $tags);
+                        ->orWhereIn('slug', $tags);
                 });
             }
-
 
             $validSortFields = ['created_at', 'likes_count', 'saves_count', 'comments_count'];
             $sortField = in_array($sortBy, $validSortFields) ? $sortBy : 'created_at';
@@ -118,11 +103,10 @@ class PostController extends Controller
                 ->with([
                     'user:id,name,full_name,username,profile_picture',
                     'category:id,name,color,icon',
-                    'tags:id,name,slug'
+                    'tags:id,name,slug',
                 ])
                 ->paginate($perPage);
         });
-
 
         $postIds = $posts->pluck('id');
         $userLikes = Like::where('user_id', $user->id)
@@ -137,6 +121,7 @@ class PostController extends Controller
         $posts->getCollection()->transform(function ($post) use ($userLikes, $userSaves) {
             $post->is_liked = in_array($post->id, $userLikes);
             $post->is_saved = in_array($post->id, $userSaves);
+
             return $post;
         });
 
@@ -150,8 +135,8 @@ class PostController extends Controller
                 'search' => $search,
                 'media_type' => $mediaType,
                 'sort_by' => $sortBy,
-                'sort_order' => $sortOrder
-            ]
+                'sort_order' => $sortOrder,
+            ],
         ]);
     }
 
@@ -173,7 +158,7 @@ class PostController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Validation errors',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -182,15 +167,14 @@ class PostController extends Controller
         $mediaType = $file->getMimeType();
         $isVideo = str_starts_with($mediaType, 'video/');
 
-
         $uploadResult = S3Service::uploadWithCDN($file, 'posts');
 
         $isAds = $request->get('is_ads', false);
 
-        if ($isAds && !SubscriptionService::isProfessional($user)) {
+        if ($isAds && ! SubscriptionService::isProfessional($user)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Professional subscription required to create ads posts'
+                'message' => 'Professional subscription required to create ads posts',
             ], 403);
         }
 
@@ -205,7 +189,6 @@ class PostController extends Controller
             'is_ads' => $isAds,
         ]);
 
-
         if ($request->tags) {
             foreach ($request->tags as $tagName) {
                 $tag = Tag::firstOrCreate(
@@ -217,36 +200,34 @@ class PostController extends Controller
             }
         }
 
-
         $taggedUsers = [];
-        if ($request->tagged_users && !empty($request->tagged_users)) {
+        if ($request->tagged_users && ! empty($request->tagged_users)) {
             $isProfessional = SubscriptionService::isProfessional($user);
 
             foreach ($request->tagged_users as $taggedUserId) {
                 $taggedUser = User::find($taggedUserId);
 
                 if ($taggedUser && $taggedUser->is_professional) {
-                    if (!$isProfessional) {
+                    if (! $isProfessional) {
                         return response()->json([
                             'success' => false,
-                            'message' => 'Professional subscription required to tag other professionals'
+                            'message' => 'Professional subscription required to tag other professionals',
                         ], 403);
                     }
                 }
             }
 
-            $userTaggingService = new UserTaggingService();
+            $userTaggingService = new UserTaggingService;
             $tagResult = $userTaggingService->tagUsersInPost($post, $request->tagged_users, $user);
             if ($tagResult['success']) {
                 $taggedUsers = $tagResult['tagged_users'];
             }
         }
 
-
         if ($request->caption) {
-            $userTaggingService = new UserTaggingService();
+            $userTaggingService = new UserTaggingService;
             $captionUserIds = $userTaggingService->parseUserTagsFromCaption($request->caption);
-            if (!empty($captionUserIds)) {
+            if (! empty($captionUserIds)) {
                 $tagResult = $userTaggingService->tagUsersInPost($post, $captionUserIds, $user);
                 if ($tagResult['success']) {
                     $taggedUsers = array_merge($taggedUsers, $tagResult['tagged_users']);
@@ -254,17 +235,16 @@ class PostController extends Controller
             }
         }
 
-
         $followers = $user->followers;
         if ($followers->isNotEmpty()) {
-            $firebaseService = new FirebaseNotificationService();
+            $firebaseService = new FirebaseNotificationService;
             $firebaseService->sendNewPostNotification($user, $followers->toArray(), $post);
         }
 
         return response()->json([
             'success' => true,
             'message' => 'Post created successfully',
-            'data' => $post->load(['user', 'category', 'tags', 'taggedUsers'])
+            'data' => $post->load(['user', 'category', 'tags', 'taggedUsers']),
         ], 201);
     }
 
@@ -280,7 +260,7 @@ class PostController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $post
+            'data' => $post,
         ]);
     }
 
@@ -299,7 +279,7 @@ class PostController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Post unliked',
-                'data' => ['liked' => false, 'likes_count' => $post->likes_count]
+                'data' => ['liked' => false, 'likes_count' => $post->likes_count],
             ]);
         } else {
             Like::create([
@@ -308,17 +288,16 @@ class PostController extends Controller
             ]);
             $post->increment('likes_count');
 
-
             if ($post->user_id !== $user->id) {
                 $postOwner = User::find($post->user_id);
-                $firebaseService = new FirebaseNotificationService();
+                $firebaseService = new FirebaseNotificationService;
                 $firebaseService->sendPostLikedNotification($user, $postOwner, $post);
             }
 
             return response()->json([
                 'success' => true,
                 'message' => 'Post liked',
-                'data' => ['liked' => true, 'likes_count' => $post->likes_count]
+                'data' => ['liked' => true, 'likes_count' => $post->likes_count],
             ]);
         }
     }
@@ -338,7 +317,7 @@ class PostController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Post unsaved',
-                'data' => ['saved' => false, 'saves_count' => $post->saves_count]
+                'data' => ['saved' => false, 'saves_count' => $post->saves_count],
             ]);
         } else {
             Save::create([
@@ -347,17 +326,16 @@ class PostController extends Controller
             ]);
             $post->increment('saves_count');
 
-
             if ($post->user_id !== $user->id) {
                 $postOwner = User::find($post->user_id);
-                $firebaseService = new FirebaseNotificationService();
+                $firebaseService = new FirebaseNotificationService;
                 $firebaseService->sendPostSavedNotification($postOwner, $user, $post);
             }
 
             return response()->json([
                 'success' => true,
                 'message' => 'Post saved',
-                'data' => ['saved' => true, 'saves_count' => $post->saves_count]
+                'data' => ['saved' => true, 'saves_count' => $post->saves_count],
             ]);
         }
     }
@@ -365,20 +343,19 @@ class PostController extends Controller
     public function share(Request $request, Post $post)
     {
         $validator = Validator::make($request->all(), [
-            'platform' => 'nullable|string|max:50'
+            'platform' => 'nullable|string|max:50',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
                 'message' => 'Validation errors',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
         $user = $request->user();
         $platform = $request->get('platform', 'copy_link');
-
 
         $existingShare = Share::where('user_id', $user->id)
             ->where('post_id', $post->id)
@@ -388,10 +365,9 @@ class PostController extends Controller
         if ($existingShare) {
             return response()->json([
                 'success' => false,
-                'message' => 'Post already shared on this platform'
+                'message' => 'Post already shared on this platform',
             ], 400);
         }
-
 
         Share::create([
             'user_id' => $user->id,
@@ -399,14 +375,12 @@ class PostController extends Controller
             'platform' => $platform,
         ]);
 
-
         $post->increment('shares_count');
-
 
         if ($post->user_id !== $user->id) {
             $postOwner = User::find($post->user_id);
             if ($postOwner && $postOwner->notifications_enabled) {
-                $firebaseService = new FirebaseNotificationService();
+                $firebaseService = new FirebaseNotificationService;
                 $firebaseService->sendPostSharedNotification($user, $postOwner, $post, $platform);
             }
         }
@@ -417,8 +391,8 @@ class PostController extends Controller
             'data' => [
                 'shared' => true,
                 'shares_count' => $post->fresh()->shares_count,
-                'platform' => $platform
-            ]
+                'platform' => $platform,
+            ],
         ]);
     }
 
@@ -429,14 +403,48 @@ class PostController extends Controller
         if ($post->user_id !== $user->id) {
             return response()->json([
                 'success' => false,
-                'message' => 'Unauthorized'
+                'message' => 'Unauthorized',
             ], 403);
         }
 
+        $pathsToDelete = [];
 
-        if ($post->media_url) {
-            $path = str_replace(config('filesystems.disks.s3.url'), '', $post->media_url);
-            S3Service::deleteFile($path);
+        if ($post->media_metadata && isset($post->media_metadata['files']) && is_array($post->media_metadata['files'])) {
+            foreach ($post->media_metadata['files'] as $file) {
+                if (isset($file['file_path'])) {
+                    $pathsToDelete[] = $file['file_path'];
+                }
+                if (isset($file['thumbnail_url']) && $file['thumbnail_url']) {
+                    $thumbnailPath = $this->extractS3PathFromUrl($file['thumbnail_url']);
+                    if ($thumbnailPath) {
+                        $pathsToDelete[] = $thumbnailPath;
+                    }
+                }
+            }
+        }
+
+        if (empty($pathsToDelete) && $post->media_url) {
+            $mediaUrls = is_array($post->media_url) ? $post->media_url : [$post->media_url];
+
+            foreach ($mediaUrls as $mediaUrl) {
+                if ($mediaUrl) {
+                    $path = $this->extractS3PathFromUrl($mediaUrl);
+                    if ($path) {
+                        $pathsToDelete[] = $path;
+                    }
+                }
+            }
+        }
+
+        if ($post->thumbnail_url) {
+            $thumbnailPath = $this->extractS3PathFromUrl($post->thumbnail_url);
+            if ($thumbnailPath && ! in_array($thumbnailPath, $pathsToDelete)) {
+                $pathsToDelete[] = $thumbnailPath;
+            }
+        }
+
+        if (! empty($pathsToDelete)) {
+            S3Service::deleteFiles($pathsToDelete);
         }
 
         $postId = $post->id;
@@ -447,8 +455,44 @@ class PostController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Post deleted successfully'
+            'message' => 'Post deleted successfully',
         ]);
+    }
+
+    private function extractS3PathFromUrl(string $url): ?string
+    {
+        if (empty($url)) {
+            return null;
+        }
+
+        $cdnUrl = config('filesystems.disks.s3.cdn_url');
+        if ($cdnUrl) {
+            if (! str_starts_with($cdnUrl, 'http://') && ! str_starts_with($cdnUrl, 'https://')) {
+                $cdnUrl = 'https://'.$cdnUrl;
+            }
+            $cdnUrl = rtrim($cdnUrl, '/').'/';
+
+            if (str_starts_with($url, $cdnUrl)) {
+                return ltrim(str_replace($cdnUrl, '', $url), '/');
+            }
+        }
+
+        $bucket = config('filesystems.disks.s3.bucket');
+        $region = config('filesystems.disks.s3.region');
+
+        if ($bucket && $region) {
+            $s3BaseUrl = "https://{$bucket}.s3.{$region}.amazonaws.com/";
+            if (str_starts_with($url, $s3BaseUrl)) {
+                return ltrim(str_replace($s3BaseUrl, '', $url), '/');
+            }
+        }
+
+        $parsed = parse_url($url);
+        if (isset($parsed['path'])) {
+            return ltrim($parsed['path'], '/');
+        }
+
+        return null;
     }
 
     public function search(Request $request)
@@ -468,7 +512,7 @@ class PostController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $posts
+                'data' => $posts,
             ]);
         }
 
@@ -479,7 +523,7 @@ class PostController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $users
+                'data' => $users,
             ]);
         }
 
@@ -490,7 +534,7 @@ class PostController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $tags
+                'data' => $tags,
             ]);
         }
     }
@@ -504,10 +548,9 @@ class PostController extends Controller
             $posts = Post::whereHas('saves', function ($query) use ($user) {
                 $query->where('user_id', $user->id);
             })
-            ->with(['user:id,name,full_name,username,profile_picture', 'category:id,name,color,icon', 'tags:id,name,slug'])
-            ->orderBy('created_at', 'desc')
-            ->paginate($perPage);
-
+                ->with(['user:id,name,full_name,username,profile_picture', 'category:id,name,color,icon', 'tags:id,name,slug'])
+                ->orderBy('created_at', 'desc')
+                ->paginate($perPage);
 
             if ($posts->count() > 0) {
                 $postIds = $posts->pluck('id')->toArray();
@@ -519,6 +562,7 @@ class PostController extends Controller
                 $posts->getCollection()->transform(function ($post) use ($userLikes) {
                     $post->is_liked = in_array($post->id, $userLikes);
                     $post->is_saved = true;
+
                     return $post;
                 });
             }
@@ -526,14 +570,15 @@ class PostController extends Controller
             return response()->json([
                 'success' => true,
                 'data' => $posts,
-                'message' => $posts->count() > 0 ? 'Saved posts retrieved successfully' : 'No saved posts found'
+                'message' => $posts->count() > 0 ? 'Saved posts retrieved successfully' : 'No saved posts found',
             ]);
         } catch (\Exception $e) {
-            Log::error('Error fetching saved posts: ' . $e->getMessage());
+            Log::error('Error fetching saved posts: '.$e->getMessage());
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch saved posts',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -547,10 +592,9 @@ class PostController extends Controller
             $posts = Post::whereHas('likes', function ($query) use ($user) {
                 $query->where('user_id', $user->id);
             })
-            ->with(['user:id,name,full_name,username,profile_picture', 'category:id,name,color,icon', 'tags:id,name,slug'])
-            ->orderBy('created_at', 'desc')
-            ->paginate($perPage);
-
+                ->with(['user:id,name,full_name,username,profile_picture', 'category:id,name,color,icon', 'tags:id,name,slug'])
+                ->orderBy('created_at', 'desc')
+                ->paginate($perPage);
 
             if ($posts->count() > 0) {
                 $postIds = $posts->pluck('id')->toArray();
@@ -562,6 +606,7 @@ class PostController extends Controller
                 $posts->getCollection()->transform(function ($post) use ($userSaves) {
                     $post->is_liked = true;
                     $post->is_saved = in_array($post->id, $userSaves);
+
                     return $post;
                 });
             }
@@ -569,14 +614,15 @@ class PostController extends Controller
             return response()->json([
                 'success' => true,
                 'data' => $posts,
-                'message' => $posts->count() > 0 ? 'Liked posts retrieved successfully' : 'No liked posts found'
+                'message' => $posts->count() > 0 ? 'Liked posts retrieved successfully' : 'No liked posts found',
             ]);
         } catch (\Exception $e) {
-            Log::error('Error fetching liked posts: ' . $e->getMessage());
+            Log::error('Error fetching liked posts: '.$e->getMessage());
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch liked posts',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -592,7 +638,7 @@ class PostController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Validation errors',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -602,14 +648,14 @@ class PostController extends Controller
         $posts = Post::whereHas('tags', function ($query) use ($tags) {
             $query->whereIn('name', $tags);
         })
-        ->with(['user:id,name,full_name,username,profile_picture', 'category:id,name,color,icon', 'tags:id,name,slug'])
-        ->where('is_public', true)
-        ->orderBy('created_at', 'desc')
-        ->paginate($perPage);
+            ->with(['user:id,name,full_name,username,profile_picture', 'category:id,name,color,icon', 'tags:id,name,slug'])
+            ->where('is_public', true)
+            ->orderBy('created_at', 'desc')
+            ->paginate($perPage);
 
         return response()->json([
             'success' => true,
-            'data' => $posts
+            'data' => $posts,
         ]);
     }
 
@@ -630,9 +676,9 @@ class PostController extends Controller
 
         try {
 
-            $presignedService = new PresignedUrlService(new S3Service());
+            $presignedService = new PresignedUrlService(new S3Service);
             $result = $presignedService->generateUploadUrl(
-                'posts/test_' . time() . '.jpg',
+                'posts/test_'.time().'.jpg',
                 'image/jpeg',
                 15
             );
@@ -642,20 +688,21 @@ class PostController extends Controller
                     'success' => true,
                     'data' => [
                         'upload_url' => $result['presigned_url'],
-                        'expires_in' => $result['expires_in']
-                    ]
+                        'expires_in' => $result['expires_in'],
+                    ],
                 ]);
             } else {
                 return response()->json([
                     'success' => false,
-                    'error' => $result['error']
+                    'error' => $result['error'],
                 ], 500);
             }
         } catch (\Exception $e) {
-            Log::error('Error in getSimpleUploadUrl: ' . $e->getMessage());
+            Log::error('Error in getSimpleUploadUrl: '.$e->getMessage());
+
             return response()->json([
                 'success' => false,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -677,27 +724,27 @@ class PostController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Validation errors',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
         try {
 
             $token = $request->bearerToken();
-            if (!$token) {
+            if (! $token) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Authentication required',
-                    'error' => 'No token provided'
+                    'error' => 'No token provided',
                 ], 401);
             }
 
             $personalAccessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
-            if (!$personalAccessToken) {
+            if (! $personalAccessToken) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Authentication required',
-                    'error' => 'Invalid token'
+                    'error' => 'Invalid token',
                 ], 401);
             }
 
@@ -708,13 +755,11 @@ class PostController extends Controller
             $contentType = $request->content_type;
             $fileSize = $request->file_size;
 
-
             $extension = pathinfo($filename, PATHINFO_EXTENSION);
-            $uniqueFilename = time() . '_' . $user->id . '_' . Str::random(10) . '.' . $extension;
-            $s3Path = 'posts/' . $uniqueFilename;
+            $uniqueFilename = time().'_'.$user->id.'_'.Str::random(10).'.'.$extension;
+            $s3Path = 'posts/'.$uniqueFilename;
 
-
-            $s3Service = new S3Service();
+            $s3Service = new S3Service;
             $presignedUrl = $s3Service->getTemporaryUrl($s3Path, now()->addMinutes(15), 'PUT', [
                 'Content-Type' => $contentType,
             ]);
@@ -729,15 +774,16 @@ class PostController extends Controller
                     'expires_in' => 900,
                     'file_size' => $fileSize,
                     'content_type' => $contentType,
-                ]
+                ],
             ]);
 
         } catch (\Exception $e) {
-            Log::error('Error in getWorkingUploadUrl: ' . $e->getMessage());
+            Log::error('Error in getWorkingUploadUrl: '.$e->getMessage());
+
             return response()->json([
                 'success' => false,
                 'message' => 'Internal server error',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -749,93 +795,93 @@ class PostController extends Controller
      * - >= 500MB: Chunked upload
      */
     public function getUploadUrl(Request $request)
-{
-    Log::info('getUploadUrl method called', ['request' => $request->all()]);
+    {
+        Log::info('getUploadUrl method called', ['request' => $request->all()]);
 
-    $validator = Validator::make($request->all(), [
-        'filename' => 'required|string|max:255',
-        'content_type' => 'required|string',
-        'file_size' => 'required|integer|min:1|max:2147483648',
-    ]);
+        $validator = Validator::make($request->all(), [
+            'filename' => 'required|string|max:255',
+            'content_type' => 'required|string',
+            'file_size' => 'required|integer|min:1|max:2147483648',
+        ]);
 
-    if ($validator->fails()) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Validation errors',
-            'errors' => $validator->errors()
-        ], 422);
-    }
-
-    try {
-        $user = $request->user();
-
-        if (!$user) {
-            Log::error('User not authenticated in getUploadUrl');
+        if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Authentication required',
-                'error' => 'User not authenticated'
-            ], 401);
+                'message' => 'Validation errors',
+                'errors' => $validator->errors(),
+            ], 422);
         }
 
-        $filename = $request->filename;
-        $contentType = $request->content_type;
-        $fileSize = $request->file_size;
+        try {
+            $user = $request->user();
 
+            if (! $user) {
+                Log::error('User not authenticated in getUploadUrl');
 
-        $extension = pathinfo($filename, PATHINFO_EXTENSION);
-        $uniqueFilename = time() . '_' . $user->id . '_' . Str::random(10) . '.' . $extension;
-        $s3Path = 'posts/' . $uniqueFilename;
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Authentication required',
+                    'error' => 'User not authenticated',
+                ], 401);
+            }
 
-        Log::info('Generating presigned URL', [
-            's3_path' => $s3Path,
-            'content_type' => $contentType
-        ]);
+            $filename = $request->filename;
+            $contentType = $request->content_type;
+            $fileSize = $request->file_size;
 
+            $extension = pathinfo($filename, PATHINFO_EXTENSION);
+            $uniqueFilename = time().'_'.$user->id.'_'.Str::random(10).'.'.$extension;
+            $s3Path = 'posts/'.$uniqueFilename;
 
-        $presignedUrl = S3Service::getTemporaryUrl(
-            $s3Path,
-            now()->addMinutes(15),
-            'PUT',
-            $contentType
-        );
-
-        Log::info('Presigned URL generated successfully', [
-            'url_length' => strlen($presignedUrl)
-        ]);
-
-        $bucket = config('filesystems.disks.s3.bucket');
-        $region = config('filesystems.disks.s3.region');
-
-        // Build file URL - use S3Service method if bucket/region are missing
-        $fileUrl = S3Service::getUrl($s3Path);
-
-        return response()->json([
-            'success' => true,
-            'data' => [
-                'upload_method' => 'direct',
-                'upload_url' => $presignedUrl,
-                'file_path' => $s3Path,
-                'file_url' => $fileUrl,
-                'expires_in' => 900,
-                'file_size' => $fileSize,
+            Log::info('Generating presigned URL', [
+                's3_path' => $s3Path,
                 'content_type' => $contentType,
-            ]
-        ]);
+            ]);
 
-    } catch (\Exception $e) {
-        Log::error('Failed to generate presigned URL', [
-            'error' => $e->getMessage(),
-            'trace' => $e->getTraceAsString()
-        ]);
+            $presignedUrl = S3Service::getTemporaryUrl(
+                $s3Path,
+                now()->addMinutes(15),
+                'PUT',
+                $contentType
+            );
 
-        return response()->json([
-            'success' => false,
-            'message' => 'Failed to generate upload URL',
-            'error' => $e->getMessage()
-        ], 500);
+            Log::info('Presigned URL generated successfully', [
+                'url_length' => strlen($presignedUrl),
+            ]);
+
+            $bucket = config('filesystems.disks.s3.bucket');
+            $region = config('filesystems.disks.s3.region');
+
+            // Build file URL - use S3Service method if bucket/region are missing
+            $fileUrl = S3Service::getUrl($s3Path);
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'upload_method' => 'direct',
+                    'upload_url' => $presignedUrl,
+                    'file_path' => $s3Path,
+                    'file_url' => $fileUrl,
+                    'expires_in' => 900,
+                    'file_size' => $fileSize,
+                    'content_type' => $contentType,
+                ],
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Failed to generate presigned URL', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to generate upload URL',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
     }
-}
+
     /**
      * Create post after successful S3 upload
      * Supports multiple images/videos with pre-generated S3 links
@@ -867,177 +913,164 @@ class PostController extends Controller
                 return response()->json([
                     'success' => false,
                     'message' => 'Validation errors',
-                    'errors' => $validator->errors()
+                    'errors' => $validator->errors(),
                 ], 422);
             }
 
             $user = $request->user();
 
-            if (!$user) {
+            if (! $user) {
                 Log::error('User not authenticated in createFromS3');
+
                 return response()->json([
                     'success' => false,
-                    'message' => 'Authentication required'
+                    'message' => 'Authentication required',
                 ], 401);
             }
 
-        // Support both single file_path and multiple file_paths for backward compatibility
-        $filePaths = $request->has('file_paths') ? $request->file_paths : [$request->file_path];
-        $thumbnailPaths = $request->has('thumbnail_paths') ? $request->thumbnail_paths : 
-                         ($request->thumbnail_path ? [$request->thumbnail_path] : []);
+            $filePaths = $request->has('file_paths') ? $request->file_paths : [$request->file_path];
+            $thumbnailPaths = $request->has('thumbnail_paths') ? $request->thumbnail_paths :
+                             ($request->thumbnail_path ? [$request->thumbnail_path] : []);
 
-        // Validate that all file paths exist on S3
-        $missingFiles = [];
-        foreach ($filePaths as $index => $filePath) {
-            if (!S3Service::exists($filePath)) {
-                $missingFiles[] = "File at index {$index}: {$filePath}";
+            $missingFiles = [];
+            foreach ($filePaths as $index => $filePath) {
+                if (! S3Service::exists($filePath)) {
+                    $missingFiles[] = "File at index {$index}: {$filePath}";
+                }
             }
-        }
 
-        if (!empty($missingFiles)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Some files not found on S3. Please upload first.',
-                'missing_files' => $missingFiles
-            ], 404);
-        }
-
-        // Validate thumbnail paths if provided
-        foreach ($thumbnailPaths as $index => $thumbnailPath) {
-            if ($thumbnailPath && !S3Service::exists($thumbnailPath)) {
+            if (! empty($missingFiles)) {
                 return response()->json([
                     'success' => false,
-                    'message' => "Thumbnail at index {$index} not found on S3. Please upload first."
+                    'message' => 'Some files not found on S3. Please upload first.',
+                    'missing_files' => $missingFiles,
                 ], 404);
             }
-        }
 
-        // Determine media types and URLs
-        $mediaUrls = [];
-        $mediaTypes = [];
-        $thumbnailUrls = [];
-        $hasVideo = false;
-        $hasImage = false;
+            foreach ($thumbnailPaths as $index => $thumbnailPath) {
+                if ($thumbnailPath && ! S3Service::exists($thumbnailPath)) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => "Thumbnail at index {$index} not found on S3. Please upload first.",
+                    ], 404);
+                }
+            }
 
-        foreach ($filePaths as $index => $filePath) {
-            $extension = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
-            $isVideo = in_array($extension, ['mp4', 'mov', 'avi', 'mkv', 'webm']);
+            $mediaUrls = [];
+            $mediaTypes = [];
+            $thumbnailUrls = [];
+            $hasVideo = false;
+            $hasImage = false;
 
-            $mediaUrl = S3Service::getUrl($filePath);
-            $mediaUrls[] = $mediaUrl;
-            $mediaTypes[] = $isVideo ? 'video' : 'image';
-            
-            if ($isVideo) {
-                $hasVideo = true;
-                // Get thumbnail for this video if provided
-                $thumbnailUrl = isset($thumbnailPaths[$index]) && $thumbnailPaths[$index] 
-                    ? S3Service::getUrl($thumbnailPaths[$index]) 
-                    : 'https://via.placeholder.com/800x600/cccccc/666666?text=Video+Thumbnail';
-                $thumbnailUrls[] = $thumbnailUrl;
+            foreach ($filePaths as $index => $filePath) {
+                $extension = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
+                $isVideo = in_array($extension, ['mp4', 'mov', 'avi', 'mkv', 'webm']);
+
+                $mediaUrl = S3Service::getUrl($filePath);
+                $mediaUrls[] = $mediaUrl;
+                $mediaTypes[] = $isVideo ? 'video' : 'image';
+
+                if ($isVideo) {
+                    $hasVideo = true;
+                    $thumbnailUrl = isset($thumbnailPaths[$index]) && $thumbnailPaths[$index]
+                        ? S3Service::getUrl($thumbnailPaths[$index])
+                        : 'https://via.placeholder.com/800x600/cccccc/666666?text=Video+Thumbnail';
+                    $thumbnailUrls[] = $thumbnailUrl;
+                } else {
+                    $hasImage = true;
+                    $thumbnailUrls[] = null;
+                }
+            }
+
+            if ($hasVideo && $hasImage) {
+                $mediaType = 'mixed';
+            } elseif ($hasVideo) {
+                $mediaType = 'video';
             } else {
-                $hasImage = true;
-                $thumbnailUrls[] = null; // Images don't need thumbnails
+                $mediaType = 'image';
             }
-        }
 
-        // Determine overall media type
-        if ($hasVideo && $hasImage) {
-            $mediaType = 'mixed';
-        } elseif ($hasVideo) {
-            $mediaType = 'video';
-        } else {
-            $mediaType = 'image';
-        }
+            $thumbnailUrl = ! empty($thumbnailUrls) ? $thumbnailUrls[0] : null;
 
-        // For backward compatibility, if single media, use the first thumbnail
-        $thumbnailUrl = !empty($thumbnailUrls) ? $thumbnailUrls[0] : null;
+            $isAds = $request->get('is_ads', false);
+            if ($isAds && ! SubscriptionService::isProfessional($user)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Professional subscription required to create ads posts',
+                ], 403);
+            }
 
-        // Check if user can create ads posts
-        $isAds = $request->get('is_ads', false);
-        if ($isAds && !SubscriptionService::isProfessional($user)) {
+            $mediaMetadata = $request->media_metadata ?? [];
+            $mediaMetadata['files'] = [];
+            foreach ($filePaths as $index => $filePath) {
+                $mediaMetadata['files'][] = [
+                    'file_path' => $filePath,
+                    'media_url' => $mediaUrls[$index],
+                    'media_type' => $mediaTypes[$index],
+                    'thumbnail_url' => $thumbnailUrls[$index] ?? null,
+                ];
+            }
+            $mediaMetadata['count'] = count($filePaths);
+
+            $post = Post::create([
+                'user_id' => $user->id,
+                'category_id' => $request->category_id,
+                'caption' => $request->caption,
+                'media_url' => $mediaUrls,
+                'media_type' => $mediaType,
+                'thumbnail_url' => $thumbnailUrl,
+                'media_metadata' => $mediaMetadata,
+                'location' => $request->location,
+                'is_public' => true,
+                'is_ads' => $isAds,
+            ]);
+
+            if ($request->tags) {
+                foreach ($request->tags as $tagName) {
+                    $tag = Tag::firstOrCreate(
+                        ['name' => $tagName],
+                        ['slug' => Str::slug($tagName), 'usage_count' => 0]
+                    );
+                    $post->tags()->attach($tag->id);
+                    $tag->increment('usage_count');
+                }
+            }
+            if ($request->tagged_users && ! empty($request->tagged_users)) {
+                $userTaggingService = new UserTaggingService;
+                $userTaggingService->tagUsersInPost($post, $request->tagged_users, $user);
+            }
+
+            // Send notifications to followers
+            $followers = $user->followers()->pluck('users.id');
+            if ($followers->isNotEmpty()) {
+                $firebaseService = new FirebaseNotificationService;
+                $firebaseService->sendNewPostNotification($user, $followers->toArray(), $post);
+            }
+
+            // Load relationships
+            $post->load(['user:id,name,full_name,username,profile_picture', 'category:id,name,color,icon', 'tags:id,name,slug']);
+
             return response()->json([
-                'success' => false,
-                'message' => 'Professional subscription required to create ads posts'
-            ], 403);
-        }
-
-        // Prepare media metadata with individual file info
-        $mediaMetadata = $request->media_metadata ?? [];
-        $mediaMetadata['files'] = [];
-        foreach ($filePaths as $index => $filePath) {
-            $mediaMetadata['files'][] = [
-                'file_path' => $filePath,
-                'media_url' => $mediaUrls[$index],
-                'media_type' => $mediaTypes[$index],
-                'thumbnail_url' => $thumbnailUrls[$index] ?? null,
-            ];
-        }
-        $mediaMetadata['count'] = count($filePaths);
-
-        // Store media_urls as JSON array (always array for consistency)
-        $post = Post::create([
-            'user_id' => $user->id,
-            'category_id' => $request->category_id,
-            'caption' => $request->caption,
-            'media_url' => $mediaUrls, // Always store as array
-            'media_type' => $mediaType,
-            'thumbnail_url' => $thumbnailUrl,
-            'media_metadata' => $mediaMetadata,
-            'location' => $request->location,
-            'is_public' => true,
-            'is_ads' => $isAds,
-        ]);
-
-
-        // Handle tags
-        if ($request->tags) {
-            foreach ($request->tags as $tagName) {
-                $tag = Tag::firstOrCreate(
-                    ['name' => $tagName],
-                    ['slug' => Str::slug($tagName), 'usage_count' => 0]
-                );
-                $post->tags()->attach($tag->id);
-                $tag->increment('usage_count');
-            }
-        }
-
-        // Handle tagged users
-        if ($request->tagged_users && !empty($request->tagged_users)) {
-            $userTaggingService = new UserTaggingService();
-            $userTaggingService->tagUsersInPost($post, $request->tagged_users, $user);
-        }
-
-        // Send notifications to followers
-        $followers = $user->followers()->pluck('users.id');
-        if ($followers->isNotEmpty()) {
-            $firebaseService = new FirebaseNotificationService();
-            $firebaseService->sendNewPostNotification($user, $followers->toArray(), $post);
-        }
-
-        // Load relationships
-        $post->load(['user:id,name,full_name,username,profile_picture', 'category:id,name,color,icon', 'tags:id,name,slug']);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Post created successfully',
-            'data' => [
-                'post' => $post,
-                'is_liked' => false,
-                'is_saved' => false,
-            ]
-        ]);
+                'success' => true,
+                'message' => 'Post created successfully',
+                'data' => [
+                    'post' => $post,
+                    'is_liked' => false,
+                    'is_saved' => false,
+                ],
+            ]);
 
         } catch (\Exception $e) {
             Log::error('Failed to create post from S3', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
-                'request' => $request->all()
+                'request' => $request->all(),
             ]);
 
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to create post',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -1058,7 +1091,7 @@ class PostController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Validation errors',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -1068,18 +1101,15 @@ class PostController extends Controller
         $totalSize = $request->total_size;
         $chunkSize = $request->chunk_size;
 
-
         $extension = pathinfo($filename, PATHINFO_EXTENSION);
-        $uniqueFilename = time() . '_' . $user->id . '_' . Str::random(10) . '.' . $extension;
-        $s3Path = 'posts/' . $uniqueFilename;
-
+        $uniqueFilename = time().'_'.$user->id.'_'.Str::random(10).'.'.$extension;
+        $s3Path = 'posts/'.$uniqueFilename;
 
         $totalChunks = ceil($totalSize / $chunkSize);
 
-
         $chunkUrls = [];
         for ($i = 0; $i < $totalChunks; $i++) {
-            $chunkPath = $s3Path . '.part' . $i;
+            $chunkPath = $s3Path.'.part'.$i;
             $chunkUrl = S3Service::getTemporaryUrl($chunkPath, now()->addHour(), 'PUT', [
                 'Content-Type' => $contentType,
             ]);
@@ -1100,7 +1130,7 @@ class PostController extends Controller
                 'chunk_size' => $chunkSize,
                 'chunk_urls' => $chunkUrls,
                 'expires_in' => 3600,
-            ]
+            ],
         ]);
     }
 
@@ -1118,7 +1148,7 @@ class PostController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Validation errors',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -1128,18 +1158,14 @@ class PostController extends Controller
         try {
 
             for ($i = 0; $i < $totalChunks; $i++) {
-                $chunkPath = $filePath . '.part' . $i;
-                if (!S3Service::exists($chunkPath)) {
+                $chunkPath = $filePath.'.part'.$i;
+                if (! S3Service::exists($chunkPath)) {
                     return response()->json([
                         'success' => false,
-                        'message' => "Chunk {$i} not found. Please re-upload."
+                        'message' => "Chunk {$i} not found. Please re-upload.",
                     ], 400);
                 }
             }
-
-
-
-
 
             return response()->json([
                 'success' => true,
@@ -1148,13 +1174,13 @@ class PostController extends Controller
                     'file_path' => $filePath,
                     'file_url' => S3Service::getUrl($filePath),
                     'total_chunks' => $totalChunks,
-                ]
+                ],
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to complete chunked upload: ' . $e->getMessage()
+                'message' => 'Failed to complete chunked upload: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -1168,9 +1194,8 @@ class PostController extends Controller
             $user = $request->user();
             $perPage = min($request->get('per_page', 20), 50);
 
-            $userTaggingService = new UserTaggingService();
+            $userTaggingService = new UserTaggingService;
             $posts = $userTaggingService->getTaggedPosts($user, $perPage);
-
 
             if ($posts->count() > 0) {
                 $postIds = $posts->pluck('id');
@@ -1187,6 +1212,7 @@ class PostController extends Controller
                     $post->is_liked = in_array($post->id, $userLikes);
                     $post->is_saved = in_array($post->id, $userSaves);
                     $post->is_tagged = true;
+
                     return $post;
                 });
             }
@@ -1194,14 +1220,15 @@ class PostController extends Controller
             return response()->json([
                 'success' => true,
                 'data' => $posts,
-                'message' => $posts->count() > 0 ? 'Tagged posts retrieved successfully' : 'No tagged posts found'
+                'message' => $posts->count() > 0 ? 'Tagged posts retrieved successfully' : 'No tagged posts found',
             ]);
         } catch (\Exception $e) {
-            Log::error('Error fetching tagged posts: ' . $e->getMessage());
+            Log::error('Error fetching tagged posts: '.$e->getMessage());
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch tagged posts',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -1213,14 +1240,14 @@ class PostController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'q' => 'required|string|min:1|max:50',
-            'limit' => 'nullable|integer|min:1|max:20'
+            'limit' => 'nullable|integer|min:1|max:20',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
                 'message' => 'Validation errors',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -1228,19 +1255,20 @@ class PostController extends Controller
             $query = $request->get('q');
             $limit = min($request->get('limit', 10), 20);
 
-            $userTaggingService = new UserTaggingService();
+            $userTaggingService = new UserTaggingService;
             $suggestions = $userTaggingService->getTagSuggestions($query, $limit);
 
             return response()->json([
                 'success' => true,
-                'data' => $suggestions
+                'data' => $suggestions,
             ]);
         } catch (\Exception $e) {
-            Log::error('Error fetching tag suggestions: ' . $e->getMessage());
+            Log::error('Error fetching tag suggestions: '.$e->getMessage());
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch tag suggestions',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -1252,20 +1280,20 @@ class PostController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'user_ids' => 'required|array|min:1|max:10',
-            'user_ids.*' => 'integer|exists:users,id'
+            'user_ids.*' => 'integer|exists:users,id',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
                 'message' => 'Validation errors',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
         try {
             $user = $request->user();
-            $userTaggingService = new UserTaggingService();
+            $userTaggingService = new UserTaggingService;
 
             $result = $userTaggingService->tagUsersInPost($post, $request->user_ids, $user);
 
@@ -1275,22 +1303,23 @@ class PostController extends Controller
                     'message' => 'Users tagged successfully',
                     'data' => [
                         'tagged_users' => $result['tagged_users'],
-                        'notifications_sent' => count($result['notifications'])
-                    ]
+                        'notifications_sent' => count($result['notifications']),
+                    ],
                 ]);
             } else {
                 return response()->json([
                     'success' => false,
                     'message' => 'Failed to tag users',
-                    'error' => $result['error']
+                    'error' => $result['error'],
                 ], 500);
             }
         } catch (\Exception $e) {
-            Log::error('Error tagging users: ' . $e->getMessage());
+            Log::error('Error tagging users: '.$e->getMessage());
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to tag users',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -1302,19 +1331,19 @@ class PostController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'user_ids' => 'required|array|min:1',
-            'user_ids.*' => 'integer|exists:users,id'
+            'user_ids.*' => 'integer|exists:users,id',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
                 'message' => 'Validation errors',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
         try {
-            $userTaggingService = new UserTaggingService();
+            $userTaggingService = new UserTaggingService;
             $result = $userTaggingService->untagUsersFromPost($post, $request->user_ids);
 
             if ($result['success']) {
@@ -1322,22 +1351,23 @@ class PostController extends Controller
                     'success' => true,
                     'message' => 'Users untagged successfully',
                     'data' => [
-                        'untagged_users' => $result['untagged_users']
-                    ]
+                        'untagged_users' => $result['untagged_users'],
+                    ],
                 ]);
             } else {
                 return response()->json([
                     'success' => false,
                     'message' => 'Failed to untag users',
-                    'error' => $result['error']
+                    'error' => $result['error'],
                 ], 500);
             }
         } catch (\Exception $e) {
-            Log::error('Error untagging users: ' . $e->getMessage());
+            Log::error('Error untagging users: '.$e->getMessage());
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to untag users',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -1350,12 +1380,10 @@ class PostController extends Controller
         try {
             $perPage = min($request->get('per_page', 20), 50);
 
-
             $likes = $post->likes()
                 ->with(['user:id,name,full_name,username,profile_picture,bio,profession,is_business'])
                 ->orderBy('created_at', 'desc')
                 ->paginate($perPage);
-
 
             $likes->getCollection()->transform(function ($like) {
                 return [
@@ -1363,21 +1391,22 @@ class PostController extends Controller
                     'user_id' => $like->user_id,
                     'post_id' => $like->post_id,
                     'created_at' => $like->created_at,
-                    'user' => $like->user
+                    'user' => $like->user,
                 ];
             });
 
             return response()->json([
                 'success' => true,
-                'data' => $likes
+                'data' => $likes,
             ]);
 
         } catch (\Exception $e) {
-            Log::error("Failed to get post likes: " . $e->getMessage());
+            Log::error('Failed to get post likes: '.$e->getMessage());
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to get post likes',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -1390,12 +1419,10 @@ class PostController extends Controller
         try {
             $perPage = min($request->get('per_page', 20), 50);
 
-
             $saves = $post->saves()
                 ->with(['user:id,name,full_name,username,profile_picture,bio,profession,is_business'])
                 ->orderBy('created_at', 'desc')
                 ->paginate($perPage);
-
 
             $saves->getCollection()->transform(function ($save) {
                 return [
@@ -1403,21 +1430,22 @@ class PostController extends Controller
                     'user_id' => $save->user_id,
                     'post_id' => $save->post_id,
                     'created_at' => $save->created_at,
-                    'user' => $save->user
+                    'user' => $save->user,
                 ];
             });
 
             return response()->json([
                 'success' => true,
-                'data' => $saves
+                'data' => $saves,
             ]);
 
         } catch (\Exception $e) {
-            Log::error("Failed to get post saves: " . $e->getMessage());
+            Log::error('Failed to get post saves: '.$e->getMessage());
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to get post saves',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }

@@ -417,7 +417,6 @@ class AuthController extends Controller
             ], 422);
         }
 
-        // Check if new password is different from current
         if (Hash::check($request->password, $user->password)) {
             return response()->json([
                 'success' => false,
@@ -425,13 +424,10 @@ class AuthController extends Controller
             ], 422);
         }
 
-        // Update password
         $user->update([
             'password' => Hash::make($request->password)
         ]);
 
-        // Optionally, you can delete all tokens except the current one
-        // This forces re-login on other devices for security
         $currentTokenId = $request->user()->currentAccessToken()->id;
         $user->tokens()->where('id', '!=', $currentTokenId)->delete();
 
@@ -492,10 +488,8 @@ class AuthController extends Controller
             ];
         }
 
-        // Get subscription information
         $subscriptionInfo = SubscriptionService::getSubscriptionInfo($user);
 
-        // Get user's current plan if they have one
         $currentPlan = null;
         if ($user->subscriptionPlan) {
             $currentPlan = [

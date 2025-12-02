@@ -19,7 +19,6 @@ class ExportController extends Controller
             ], 422);
         }
 
-        // In a production environment this would dispatch a queued export job
         $exportId = (string) Str::uuid();
 
         return response()->json([
