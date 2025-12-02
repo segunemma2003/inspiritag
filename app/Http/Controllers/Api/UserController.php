@@ -37,20 +37,20 @@ class UserController extends Controller
     {
         $authenticatedUser = $request->user();
 
-
         $user->load(['posts' => function ($query) {
             $query->where('is_public', true)->latest();
         }]);
-
 
         $isFollowed = false;
         if ($authenticatedUser && $authenticatedUser->id !== $user->id) {
             $isFollowed = $authenticatedUser->following()->where('following_id', $user->id)->exists();
         }
 
-
         $userData = $user->toArray();
         $userData['is_followed'] = $isFollowed;
+        $userData['posts_count'] = $user->posts()->where('is_public', true)->count();
+        $userData['followers_count'] = $user->followers()->count();
+        $userData['following_count'] = $user->following()->count();
 
         return response()->json([
             'success' => true,
